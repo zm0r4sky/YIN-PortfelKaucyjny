@@ -29,6 +29,15 @@
         <div class="scan-laser"></div>
       </div>
 
+      <!-- Ręczne wpisywanie -->
+      <div class="manual-fallback glass-panel" v-if="!scanResult">
+        <p>Skaner nie daje rady? Wpisz numer ręcznie:</p>
+        <div class="input-group">
+          <input type="text" v-model="manualCode" placeholder="Wpisz np. 9841..." class="manual-input" />
+          <button class="btn btn-primary btn-small" @click="submitManualCode">OK</button>
+        </div>
+      </div>
+
       <transition name="fade-up">
         <div v-if="scanResult" class="scan-result-card glass-panel">
           <div class="success-icon">✓</div>
@@ -59,6 +68,7 @@ const scanResult = ref(null);
 const isScanning = ref(true);
 const errorMsg = ref('');
 const fileInput = ref(null);
+const manualCode = ref('');
 let html5QrCode = null;
 
 const startScanner = async () => {
@@ -116,13 +126,10 @@ const handleFileUpload = async (event) => {
     
     try {
       errorMsg.value = '';
-      // Zatrzymujemy tymczasowo ciągłe skanowanie kamery
       if (html5QrCode && html5QrCode.isScanning) {
         html5QrCode.pause(true);
       }
       
-      // Wywołanie analizy statycznego obrazu z urządzenia
-      // Argument 'false' oznacza, by nie rysowało na nowo obrazka w divie kamery
       const decodedText = await html5QrCode.scanFile(imageFile, false);
       
       isScanning.value = false;
@@ -131,15 +138,24 @@ const handleFileUpload = async (event) => {
       console.error("Błąd odczytu ze zdjęcia:", err);
       errorMsg.value = "Nie rozpoznano kodu kreskowego na tym zdjęciu. Zrób ostre zdjęcie samego kodu.";
       
-      // Wracamy do skanowania
       if (html5QrCode && html5QrCode.isScanning) {
         html5QrCode.resume();
       }
       setTimeout(() => { if(errorMsg.value.includes("Nie rozpoznano")) errorMsg.value = ''; }, 4000);
     }
     
-    // Czyścimy input by móc wrzucić ten sam plik ponownie
     event.target.value = '';
+  }
+};
+
+const submitManualCode = () => {
+  if (manualCode.value.trim().length > 5) {
+    if (html5QrCode && html5QrCode.isScanning) html5QrCode.pause(true);
+    isScanning.value = false;
+    scanResult.value = manualCode.value.trim();
+  } else {
+    errorMsg.value = "Wpisany kod jest za krótki.";
+    setTimeout(() => { errorMsg.value = ''; }, 3000);
   }
 };
 
@@ -158,6 +174,7 @@ const resetScan = () => {
   scanResult.value = null;
   isScanning.value = true;
   errorMsg.value = '';
+  manualCode.value = '';
   if (html5QrCode) {
     html5QrCode.resume();
   }
@@ -168,7 +185,7 @@ const saveReceipt = async () => {
   
   await ReceiptService.addReceipt({
     barcode: scanResult.value,
-    shop_name: 'Nieznany (Ze zdjęcia/skanera)',
+    shop_name: 'Nieznany (Wymaga weryfikacji)',
     amount: 1.00,
     expiration_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     status: 'active'
@@ -231,7 +248,7 @@ onUnmounted(() => {
   padding: 15px 30px;
   border-radius: 20px;
   backdrop-filter: blur(5px);
-  pointer-events: auto; /* Zezwalamy na klikanie w header by obsłużyć przycisk */
+  pointer-events: auto;
 }
 
 .scanner-header h1 {
@@ -265,7 +282,7 @@ onUnmounted(() => {
 
 .scan-target {
   position: absolute;
-  top: 50%;
+  top: 40%;
   left: 50%;
   transform: translate(-50%, -50%);
   width: 80%;
@@ -313,6 +330,36 @@ onUnmounted(() => {
   90% { top: 90%; opacity: 1; }
   100% { top: 90%; opacity: 0; }
 }
+
+.manual-fallback {
+  position: absolute;
+  bottom: 120px;
+  width: 90%;
+  max-width: 400px;
+  pointer-events: auto;
+  text-align: center;
+  padding: 15px;
+}
+.manual-fallback p {
+  margin: 0 0 10px 0;
+  font-size: 0.9rem;
+  font-weight: bold;
+}
+.input-group {
+  display: flex;
+  gap: 10px;
+}
+.manual-input {
+  flex: 1;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.4);
+  background: rgba(0,0,0,0.5);
+  color: white;
+  font-size: 1rem;
+}
+.manual-input::placeholder { color: #aaa; }
+.btn-small { padding: 10px 20px; }
 
 .scan-result-card {
   position: absolute;
