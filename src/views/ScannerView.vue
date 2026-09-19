@@ -53,15 +53,21 @@ const startScanner = async () => {
   scanResult.value = null;
 
   try {
-    html5QrCode = new Html5Qrcode("reader");
+    // formatsToSupport musi być przekazane do konstruktora, a nie do configu start()!
+    html5QrCode = new Html5Qrcode("reader", {
+      formatsToSupport: [ 
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.QR_CODE // dodane tymczasowo, by ułatwić Ci testowanie!
+      ]
+    });
     
-    // Optymalizacja obszaru skanowania pod Code 128
+    // Konfiguracja samej pętli skanującej
     const config = { 
       fps: 10, 
-      qrbox: { width: 300, height: 100 },
-      aspectRatio: 1.777778, // Wymuszenie proporcji 16:9
-      formatsToSupport: [ Html5QrcodeSupportedFormats.CODE_128 ],
-      disableFlip: true // Telefony zazwyczaj nie potrzebują lustrzanego odbicia tylnej kamery
+      qrbox: { width: 250, height: 100 }, // Zmniejszono nieco, by zmieścić się na każdym ekranie
+      disableFlip: false 
     };
 
     await html5QrCode.start(
