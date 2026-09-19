@@ -21,10 +21,10 @@ Budowa autonomicznej aplikacji działającej lokalnie w przeglądarce, z wykorzy
 - [x] Wdrożenie podstawowego layoutu mobilnego (np. nawigacja dolna).
 
 ### Etap 1.2: Warstwa Danych (Dexie.js)
-- [ ] Instalacja biblioteki Dexie.js.
-- [ ] Utworzenie serwisu bazy danych (`db.js` / `db.ts`).
-- [ ] Zdefiniowanie schematu tabeli `receipts` (id, sklep, kwota, data_waznosci, kod_kreskowy, status_uzycia).
-- [ ] Przygotowanie repozytorium (CRUD) z interfejsami, które w Fazie 2 pozwolą łatwo podmienić Dexie.js na zapytania API (Axios/Fetch).
+- [x] Instalacja biblioteki Dexie.js.
+- [x] Utworzenie serwisu bazy danych (`db.js` / `db.ts`).
+- [x] Zdefiniowanie schematu tabeli `receipts` (id, sklep, kwota, data_waznosci, kod_kreskowy, status_uzycia).
+- [x] Przygotowanie repozytorium (CRUD) z interfejsami, które w Fazie 2 pozwolą łatwo podmienić Dexie.js na zapytania API (Axios/Fetch).
 
 ### Etap 1.3: Skaner Kodów Kreskowych (MUST HAVE)
 - [ ] Integracja biblioteki `html5-qrcode` lub `@zxing/browser`.
