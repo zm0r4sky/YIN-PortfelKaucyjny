@@ -94,6 +94,9 @@
               <div class="success-icon">✓</div>
               <h3>Kod Rozpoznany!</h3>
               <p class="barcode-preview">{{ scanResult }}</p>
+              <div v-if="isAutoParsed" class="auto-detected-badge">
+                ⚡ Dane odczytane automatycznie z kodu
+              </div>
             </div>
 
             <!-- Formularz danych paragonu -->
@@ -176,6 +179,7 @@
 import { ref, reactive, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { BarcodeScannerService } from '../services/BarcodeScannerService';
+import { BarcodeParserService } from '../services/BarcodeParserService';
 import { ReceiptService } from '../services/ReceiptService';
 
 const router = useRouter();
@@ -191,6 +195,7 @@ const errorMsg = ref('');
 const engineName = ref('Ładowanie silnika...');
 const localizedBoxStyle = ref(null);
 const showSaveDialog = ref(false);
+const isAutoParsed = ref(false);
 
 const popularShops = ['Biedronka', 'Lidl', 'Dino', 'Kaufland', 'Carrefour', 'Żabka', 'Inny'];
 
@@ -364,9 +369,12 @@ const onBarcodeDetected = (code) => {
   isScanning.value = false;
   scanResult.value = code;
 
-  // Domyślne wartości formularza
-  receiptForm.amount = 2.00;
-  receiptForm.expiration_date = ReceiptService.getDefaultExpirationDate();
+  // Automatyczna inżynieria wsteczna danych z kodu bez konieczności OCR
+  const parsed = BarcodeParserService.parseBarcode(code);
+  receiptForm.shop_name = parsed.shop_name || 'Biedronka';
+  receiptForm.amount = parsed.amount || 2.00;
+  receiptForm.expiration_date = parsed.expiration_date || ReceiptService.getDefaultExpirationDate();
+  isAutoParsed.value = parsed.detected;
 
   BarcodeScannerService.notifySuccess();
   stopCamera();
@@ -756,6 +764,18 @@ onUnmounted(() => {
   border-radius: 6px;
   display: inline-block;
   word-break: break-all;
+}
+
+.auto-detected-badge {
+  display: inline-block;
+  margin-top: 8px;
+  background: rgba(79, 192, 141, 0.2);
+  border: 1px solid rgba(79, 192, 141, 0.5);
+  color: #4fc08d;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
 }
 
 .form-body {

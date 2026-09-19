@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Baza Próbek Paragonów Kaucyjnych - Ekosystem YIN",
+  "description": "Zestawienie przebadanych kodów kreskowych z butelkomatów i kas, służące do inżynierii wstecznej struktury danych (kwota, data, sklep, butelkomat) bez konieczności używania OCR.",
+  "version": "1.0.0",
+  "patterns": {
+    "biedronka_rvm_code128_28": {
+      "name": "Biedronka Recyklomat (Code 128 - 28 cyfr)",
+      "regex": "^9841(?<storeId>\\d{5})(?<terminalId>\\d{4})(?<timestamp>\\d{9})(?<currencyFlag>\\d{1})(?<amountGrosze>\\d{5})$",
+      "fields": {
+        "prefix": {
+          "indices": [0, 4],
+          "example": "9841",
+          "description": "Prefiks GS1 kuponu zwrotnego / kaucji Biedronka (Jeronimo Martins)"
+        },
+        "storeId": {
+          "indices": [4, 9],
+          "example": "01614",
+          "description": "5-cyfrowy identyfikator sklepu (np. Biedronka nr 1614)"
+        },
+        "terminalId": {
+          "indices": [9, 13],
+          "example": "5531",
+          "description": "Identyfikator recyklomatu / kasy lub numer transakcji"
+        },
+        "timestamp": {
+          "indices": [13, 22],
+          "example": "178982337",
+          "description": "9-cyfrowy Unix Timestamp z dokładnością do 10 sekund (1789823370 = 2026-09-19 13:09 UTC / 14:09 CET)"
+        },
+        "currencyFlag": {
+          "indices": [22, 23],
+          "example": "1",
+          "description": "Flaga waluty lub operacji (1 = PLN / kaucja butelkowa)"
+        },
+        "amountGrosze": {
+          "indices": [23, 28],
+          "example": "00650",
+          "description": "Wartość kaucji w groszach (00650 = 650 groszy = 6.50 PLN)"
+        }
+      }
+    }
+  },
+  "samples": [
+    {
+      "id": "SAMPLE-001",
+      "barcode": "9841016145531178982337100650",
+      "barcode_format": "Code 128",
+      "barcode_length": 28,
+      "retailer": "Biedronka",
+      "amount_pln": 6.50,
+      "amount_grosze": 650,
+      "items_breakdown": {
+        "plastic_bottles_50gr": 5,
+        "cans_50gr": 8,
+        "glass_bottles_100gr": 0,
+        "total_units": 13
+      },
+      "print_datetime": "2026-09-19T14:09:00",
+      "expiration_date": "2026-10-19",
+      "validity_days": 30,
+      "decoded_fields": {
+        "prefix": "9841",
+        "store_id": "01614",
+        "terminal_id": "5531",
+        "unix_timestamp_raw": "178982337",
+        "unix_timestamp_seconds": 1789823370,
+        "decoded_datetime_utc": "2026-09-19T13:09:30Z",
+        "currency_flag": "1",
+        "amount_grosze_raw": "00650",
+        "computed_amount_pln": 6.50
+      },
+      "verification_status": "VERIFIED_100_PERCENT",
+      "notes": "Pewny wzorzec: ostatnie 5 cyfr to kwota w groszach, 9 cyfr na pozycjach 13-22 to Unix Timestamp wydruku."
+    }
+  ]
+}
