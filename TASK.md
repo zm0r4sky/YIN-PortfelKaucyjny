@@ -27,10 +27,10 @@ Budowa autonomicznej aplikacji działającej lokalnie w przeglądarce, z wykorzy
 - [x] Przygotowanie repozytorium (CRUD) z interfejsami, które w Fazie 2 pozwolą łatwo podmienić Dexie.js na zapytania API (Axios/Fetch).
 
 ### Etap 1.3: Skaner Kodów Kreskowych (MUST HAVE)
-- [ ] Integracja biblioteki `html5-qrcode` lub `@zxing/browser`.
-- [ ] Wymuszenie użycia tylnej kamery telefonu (`facingMode: "environment"`).
-- [ ] Optymalizacja obszaru skanowania (Scan Area) specjalnie pod jednowymiarowy format Code 128.
-- [ ] Stworzenie widoku skanera wyświetlającego zeskanowany ciąg znaków (Proof of Concept działania).
+- [x] Integracja biblioteki `html5-qrcode` lub `@zxing/browser`.
+- [x] Wymuszenie użycia tylnej kamery telefonu (`facingMode: "environment"`).
+- [x] Optymalizacja obszaru skanowania (Scan Area) specjalnie pod jednowymiarowy format Code 128.
+- [x] Stworzenie widoku skanera wyświetlającego zeskanowany ciąg znaków (Proof of Concept działania).
 
 ### Etap 1.4: Zarządzanie Portfelem (UI/UX)
 - [ ] Widok "Mój Portfel": Wyświetlanie listy paragonów z Dexie.js, grupowanie po sklepach.
