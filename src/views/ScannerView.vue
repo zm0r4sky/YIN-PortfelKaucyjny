@@ -7,7 +7,7 @@
     <div class="scanner-ui-overlay" :class="{ 'scanning': isScanning, 'success': scanResult }">
       
       <!-- Górny nagłówek z kontrolkami -->
-      <div class="scanner-header">
+      <div class="scanner-header" v-if="!showSaveDialog">
         <div class="engine-badge" v-if="isScanning">
           {{ engineName }}
         </div>
@@ -79,29 +79,93 @@
 
       <!-- Dynamiczna ramka zlokalizowanego kodu (współrzędne na ekranie) -->
       <div 
-        v-if="localizedBoxStyle" 
+        v-if="localizedBoxStyle && !showSaveDialog" 
         class="localized-bounding-box" 
         :style="localizedBoxStyle"
       >
         <span class="lock-label">Zablokowano kod!</span>
       </div>
 
-      <!-- Karta sukcesu po rozpoznaniu kodu -->
+      <!-- Karta zatwierdzenia i uzupełnienia danych paragonu (Modal) -->
       <transition name="fade-up">
-        <div v-if="scanResult" class="scan-result-card glass-panel">
-          <div class="success-icon">✓</div>
-          <h3>Kod Rozpoznany!</h3>
-          <div class="barcode-type-pill">{{ detectedType }}</div>
-          <p class="barcode-value">{{ scanResult }}</p>
-          <div class="actions">
-            <button class="btn btn-primary" @click="saveReceipt">Dodaj do portfela</button>
-            <button class="btn btn-secondary" @click="resetScan">Skanuj następny</button>
+        <div v-if="showSaveDialog" class="save-modal-overlay">
+          <div class="save-modal glass-panel">
+            <div class="modal-header">
+              <div class="success-icon">✓</div>
+              <h3>Kod Rozpoznany!</h3>
+              <p class="barcode-preview">{{ scanResult }}</p>
+            </div>
+
+            <!-- Formularz danych paragonu -->
+            <div class="form-body">
+              <!-- Wybór sklepu -->
+              <div class="form-group">
+                <label>Sieć handlowa / Sklep:</label>
+                <div class="shop-chips">
+                  <button 
+                    v-for="shop in popularShops" 
+                    :key="shop" 
+                    type="button"
+                    class="chip-btn" 
+                    :class="{ 'active': receiptForm.shop_name === shop }"
+                    @click="receiptForm.shop_name = shop"
+                  >
+                    {{ shop }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Kwota kaucji -->
+              <div class="form-group">
+                <label>Wartość kaucji (zł):</label>
+                <div class="amount-input-row">
+                  <input 
+                    type="number" 
+                    step="0.50" 
+                    min="0" 
+                    v-model.number="receiptForm.amount" 
+                    class="amount-input" 
+                  />
+                  <span class="currency">PLN</span>
+                </div>
+                <!-- Szybkie dodawanie kwot -->
+                <div class="quick-amounts">
+                  <button type="button" class="btn-quick" @click="addAmount(0.50)">+0.50 zł</button>
+                  <button type="button" class="btn-quick" @click="addAmount(1.00)">+1.00 zł</button>
+                  <button type="button" class="btn-quick" @click="addAmount(5.00)">+5.00 zł</button>
+                  <button type="button" class="btn-quick" @click="addAmount(10.00)">+10.00 zł</button>
+                </div>
+              </div>
+
+              <!-- Data ważności -->
+              <div class="form-group">
+                <label>Data ważności:</label>
+                <input 
+                  type="date" 
+                  v-model="receiptForm.expiration_date" 
+                  class="date-input" 
+                />
+              </div>
+            </div>
+
+            <!-- Przyciski akcji -->
+            <div class="modal-actions">
+              <button class="btn btn-primary" @click="confirmSave(true)">
+                💾 Zapisz i idź do portfela
+              </button>
+              <button class="btn btn-secondary" @click="confirmSave(false)">
+                ➕ Zapisz i skanuj kolejny
+              </button>
+              <button class="btn btn-ghost" @click="cancelSave">
+                Anuluj
+              </button>
+            </div>
           </div>
         </div>
       </transition>
       
       <!-- Komunikaty błędów / powiadomienia -->
-      <div v-if="errorMsg && !scanResult" class="error-toast">
+      <div v-if="errorMsg && !showSaveDialog" class="error-toast">
         {{ errorMsg }}
       </div>
     </div>
@@ -109,7 +173,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, reactive, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { BarcodeScannerService } from '../services/BarcodeScannerService';
 import { ReceiptService } from '../services/ReceiptService';
@@ -125,8 +189,16 @@ const isAnalyzingPhoto = ref(false);
 const scanResult = ref(null);
 const errorMsg = ref('');
 const engineName = ref('Ładowanie silnika...');
-const detectedType = ref('Code 128 (Kaucja)');
 const localizedBoxStyle = ref(null);
+const showSaveDialog = ref(false);
+
+const popularShops = ['Biedronka', 'Lidl', 'Dino', 'Kaufland', 'Carrefour', 'Żabka', 'Inny'];
+
+const receiptForm = reactive({
+  shop_name: 'Biedronka',
+  amount: 2.00,
+  expiration_date: ReceiptService.getDefaultExpirationDate()
+});
 
 // Kontrolki aparatu (latarka, zoom)
 let currentStream = null;
@@ -184,6 +256,7 @@ const startCamera = async () => {
   isScanning.value = true;
   scanResult.value = null;
   localizedBoxStyle.value = null;
+  showSaveDialog.value = false;
 
   try {
     const constraints = {
@@ -231,19 +304,16 @@ const stopCamera = () => {
 const startScanLoop = () => {
   if (scanInterval) clearInterval(scanInterval);
 
-  // Skanowanie co ~60ms (~16 fps) z priorytetem obszaru celownika
   scanInterval = setInterval(async () => {
     if (!isScanning.value || isProcessingFrame || !videoElement.value) return;
     if (videoElement.value.readyState < 2) return;
 
     isProcessingFrame = true;
     try {
-      // Pobieramy pozycję celownika na ekranie
       const targetRect = targetBoxElement.value ? targetBoxElement.value.getBoundingClientRect() : null;
       const result = await BarcodeScannerService.scanVideoFrame(videoElement.value, targetRect);
       
       if (result && result.text) {
-        // Jeśli silnik zwrócił ramkę, mapujemy ją na ekran
         if (result.box) {
           computeScreenBoundingBox(result.box);
         }
@@ -294,17 +364,51 @@ const onBarcodeDetected = (code) => {
   isScanning.value = false;
   scanResult.value = code;
 
-  // Rozpoznanie typu kodu
-  if (code.length >= 20) {
-    detectedType.value = 'Code 128 (Bilet / Paragon Kaucyjny)';
-  } else if (code.length === 13) {
-    detectedType.value = 'EAN-13 (Kaucja sklepowa)';
-  } else {
-    detectedType.value = 'Kod Kreskowy';
-  }
+  // Domyślne wartości formularza
+  receiptForm.amount = 2.00;
+  receiptForm.expiration_date = ReceiptService.getDefaultExpirationDate();
 
   BarcodeScannerService.notifySuccess();
   stopCamera();
+  showSaveDialog.value = true;
+};
+
+const addAmount = (val) => {
+  receiptForm.amount = Math.round((receiptForm.amount + val) * 100) / 100;
+};
+
+const confirmSave = async (goToWallet = true) => {
+  if (!scanResult.value) return;
+
+  try {
+    await ReceiptService.addReceipt({
+      barcode: scanResult.value,
+      shop_name: receiptForm.shop_name,
+      amount: receiptForm.amount,
+      expiration_date: receiptForm.expiration_date,
+      status: 'active'
+    });
+
+    if (goToWallet) {
+      router.push('/');
+    } else {
+      // Skanuj kolejny
+      showSaveDialog.value = false;
+      scanResult.value = null;
+      localizedBoxStyle.value = null;
+      startCamera();
+    }
+  } catch (err) {
+    errorMsg.value = err.message || 'Błąd zapisu paragonu.';
+    setTimeout(() => { errorMsg.value = ''; }, 4000);
+  }
+};
+
+const cancelSave = () => {
+  showSaveDialog.value = false;
+  scanResult.value = null;
+  localizedBoxStyle.value = null;
+  startCamera();
 };
 
 const triggerFileInput = () => {
@@ -333,27 +437,6 @@ const handleFileUpload = async (event) => {
       event.target.value = '';
     }
   }
-};
-
-const resetScan = () => {
-  scanResult.value = null;
-  localizedBoxStyle.value = null;
-  errorMsg.value = '';
-  startCamera();
-};
-
-const saveReceipt = async () => {
-  if (!scanResult.value) return;
-
-  await ReceiptService.addReceipt({
-    barcode: scanResult.value,
-    shop_name: 'Nieznany (Weryfikacja)',
-    amount: 1.00,
-    expiration_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    status: 'active'
-  });
-
-  router.push('/');
 };
 
 onMounted(async () => {
@@ -624,72 +707,191 @@ onUnmounted(() => {
   letter-spacing: 0.5px;
 }
 
-/* Karta wyniku */
-.scan-result-card {
-  position: absolute;
-  bottom: 80px;
-  width: 90%;
-  max-width: 420px;
+/* Modal zapisu paragonu */
+.save-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
   pointer-events: auto;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.save-modal {
+  width: 100%;
+  max-width: 440px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+}
+
+.modal-header {
   text-align: center;
+  margin-bottom: 20px;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.barcode-preview {
+  margin: 6px 0 0;
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #4fc08d;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 4px 8px;
+  border-radius: 6px;
+  display: inline-block;
+  word-break: break-all;
+}
+
+.form-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #ddd;
+}
+
+.shop-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.chip-btn.active {
+  background: #4fc08d;
+  color: #000;
+  border-color: #4fc08d;
+  box-shadow: 0 2px 8px rgba(79, 192, 141, 0.5);
+}
+
+.amount-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.amount-input {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #4fc08d;
+  font-size: 1.4rem;
+  font-weight: 700;
+  padding: 10px 14px;
+  border-radius: 12px;
+  outline: none;
+}
+
+.currency {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #aaa;
+}
+
+.quick-amounts {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.btn-quick {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #eee;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-quick:active {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.date-input {
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  outline: none;
+}
+
+.modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .glass-panel {
-  background: rgba(25, 30, 36, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(25, 30, 36, 0.9);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 24px;
-  padding: 24px;
   color: white;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
 }
 
 .success-icon {
-  width: 52px;
-  height: 52px;
+  width: 48px;
+  height: 48px;
   background: #4fc08d;
   color: #000;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26px;
+  font-size: 24px;
   font-weight: bold;
-  margin: 0 auto 12px;
-  box-shadow: 0 0 24px rgba(79, 192, 141, 0.7);
+  margin: 0 auto 10px;
+  box-shadow: 0 0 20px rgba(79, 192, 141, 0.6);
 }
-
-.barcode-type-pill {
-  display: inline-block;
-  background: rgba(79, 192, 141, 0.2);
-  color: #4fc08d;
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 12px;
-  margin-bottom: 12px;
-}
-
-.barcode-value {
-  font-size: 1.35rem;
-  font-weight: 800;
-  letter-spacing: 1.5px;
-  background: rgba(0,0,0,0.4);
-  padding: 12px 14px;
-  border-radius: 10px;
-  margin-bottom: 20px;
-  word-break: break-all;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  font-family: monospace;
-}
-
-.actions { display: flex; flex-direction: column; gap: 10px; }
 
 .btn {
   padding: 13px 20px;
   border-radius: 12px;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 0.95rem;
   border: none;
   cursor: pointer;
@@ -700,13 +902,16 @@ onUnmounted(() => {
 .btn-primary {
   background: #4fc08d;
   color: #000;
-  font-weight: 700;
   box-shadow: 0 4px 15px rgba(79, 192, 141, 0.4);
 }
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.18);
   color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+.btn-ghost {
+  background: transparent;
+  color: #aaa;
 }
 
 .error-toast {
@@ -725,6 +930,6 @@ onUnmounted(() => {
   -webkit-backdrop-filter: blur(8px);
 }
 
-.fade-up-enter-active, .fade-up-leave-active { transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.fade-up-enter-active, .fade-up-leave-active { transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
 .fade-up-enter-from, .fade-up-leave-to { opacity: 0; transform: translateY(30px) scale(0.96); }
 </style>

@@ -39,10 +39,11 @@ Budowa autonomicznej aplikacji działającej lokalnie w przeglądarce, z wykorzy
 - [x] Opracowanie master dokumentacji `SCANER.md`: analiza, konfiguracja, gotowe wzorce i blueprint dla przyszłych projektów.
 
 ### Etap 1.4: Zarządzanie Portfelem (UI/UX)
-- [ ] Widok "Mój Portfel": Wyświetlanie listy paragonów z Dexie.js, grupowanie po sklepach.
-- [ ] Formularz dodawania/edycji: Możliwość ręcznej korekty danych przypisanych do zeskanowanego kodu.
-- [ ] Logika terminów ważności: Oznaczanie kolorem czerwonym paragonów, którym zostało mniej niż 3 dni ważności.
-- [ ] Zmiana statusu: Przycisk / Swipe do oznaczania paragonu jako "wykorzystany" i przenoszenie go do Archiwum.
+- [x] Widok "Mój Portfel": Wyświetlanie listy paragonów z Dexie.js, grupowanie po sklepach oraz saldo sumaryczne.
+- [x] Formularz dodawania/edycji: Możliwość szybkiego wyboru sklepu, kwoty i terminu ważności po skanowaniu oraz edycja w portfelu.
+- [x] Logika terminów ważności: Oznaczanie kolorem czerwonym paragonów z terminem < 3 dni (alert pilny) oraz żółtym dla terminów 3-7 dni.
+- [x] Zmiana statusu: Oznaczanie paragonu jako "wykorzystany" z przeniesieniem do Archiwum oraz opcja przywrócenia/usunięcia.
+- [x] Prezenter Kodu Kreskowego dla Kasjera: Generowanie ostrego obrazu kodu w czasie rzeczywistym z zxing-wasm do zeskanowania przy kasie.
 
 ### Etap 1.5: Rozpoznawanie Danych (OCR) - ZADANIE DODATKOWE
 - [ ] Integracja `Tesseract.js`.
