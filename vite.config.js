@@ -5,6 +5,9 @@ import { VitePWA } from 'vite-plugin-pwa'
 // https://vite.dev/config/
 export default defineConfig({
   base: '/YIN-PortfelKaucyjny/',
+  define: {
+    __APP_BUILD_TIME__: JSON.stringify(new Date().toLocaleString('pl-PL', { timeZone: 'Europe/Warsaw' }))
+  },
   plugins: [
     vue(),
     VitePWA({
