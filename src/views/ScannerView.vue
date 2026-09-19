@@ -53,21 +53,25 @@ const startScanner = async () => {
   scanResult.value = null;
 
   try {
-    // formatsToSupport musi być przekazane do konstruktora, a nie do configu start()!
+    // Z użyciem eksperymentalnego, natywnego API (BarcodeDetector) jeśli przeglądarka wspiera (niesamowicie szybkie na Androidach)
     html5QrCode = new Html5Qrcode("reader", {
       formatsToSupport: [ 
         Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.ITF,
         Html5QrcodeSupportedFormats.EAN_13,
         Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.QR_CODE // dodane tymczasowo, by ułatwić Ci testowanie!
-      ]
+        Html5QrcodeSupportedFormats.QR_CODE
+      ],
+      experimentalFeatures: {
+        useBarCodeDetectorIfSupported: true
+      }
     });
     
     // Konfiguracja samej pętli skanującej
     const config = { 
-      fps: 10, 
-      qrbox: { width: 250, height: 100 }, // Zmniejszono nieco, by zmieścić się na każdym ekranie
-      disableFlip: false 
+      fps: 20 // Zwiększony klatkaż dla szybszej reakcji
+      // CAŁKOWICIE USUNIĘTO `qrbox` - skaner teraz analizuje całą rozdzielczość matrycy (krawędź do krawędzi)
+      // Nasza ramka to teraz tylko podpowiedź wizualna dla użytkownika
     };
 
     await html5QrCode.start(
