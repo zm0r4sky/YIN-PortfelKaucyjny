@@ -1,0 +1,65 @@
+# TASK.md - Harmonogram Zadań i Postęp Prac
+
+> **ZASADY PRACY Z TYM PLIKIEM:**
+> - Agent AI ma obowiązek aktualizować ten plik po każdym zakończonym etapie.
+> - Wykonane zadania oznaczaj jako `[x]`, ale **NIGDY NIE USUWAJ** ich wpisów z tego pliku. Historia zmian musi zostać zachowana.
+> - Wszelkie nowe pomysły, poprawki i refaktoryzacje dopisuj jako nowe zadania na końcu odpowiedniego etapu.
+> - Aktualnie skupiamy się **WYŁĄCZNIE NA FAZIE 1**. 
+
+---
+
+## 🏗️ FAZA 1: Offline-first PWA (Priorytet)
+Budowa autonomicznej aplikacji działającej lokalnie w przeglądarce, z wykorzystaniem IndexedDB (Dexie.js).
+
+### Etap 1.1: Repozytorium, Hosting i Szkielet Aplikacji
+- [ ] Utworzenie publicznego repozytorium o nazwie `YIN-PortfelKaucyjny`.
+- [ ] Konfiguracja i uruchomienie usługi GitHub Pages.
+- [ ] Utworzenie testowego pliku (np. prostego `index.html`) i weryfikacja, czy GitHub Pages poprawnie serwuje stronę online.
+- [ ] Utworzenie docelowego projektu przy pomocy Vite (szablon Vue 3 lub React) po pozytywnym teście hostingu.
+- [ ] Konfiguracja pluginu `vite-plugin-pwa` (generowanie manifestu, service workera do działania offline).
+- [ ] Stworzenie bazowej struktury katalogów (`/components`, `/views`, `/services`, `/store`).
+- [ ] Wdrożenie podstawowego layoutu mobilnego (np. nawigacja dolna).
+
+### Etap 1.2: Warstwa Danych (Dexie.js)
+- [ ] Instalacja biblioteki Dexie.js.
+- [ ] Utworzenie serwisu bazy danych (`db.js` / `db.ts`).
+- [ ] Zdefiniowanie schematu tabeli `receipts` (id, sklep, kwota, data_waznosci, kod_kreskowy, status_uzycia).
+- [ ] Przygotowanie repozytorium (CRUD) z interfejsami, które w Fazie 2 pozwolą łatwo podmienić Dexie.js na zapytania API (Axios/Fetch).
+
+### Etap 1.3: Skaner Kodów Kreskowych (MUST HAVE)
+- [ ] Integracja biblioteki `html5-qrcode` lub `@zxing/browser`.
+- [ ] Wymuszenie użycia tylnej kamery telefonu (`facingMode: "environment"`).
+- [ ] Optymalizacja obszaru skanowania (Scan Area) specjalnie pod jednowymiarowy format Code 128.
+- [ ] Stworzenie widoku skanera wyświetlającego zeskanowany ciąg znaków (Proof of Concept działania).
+
+### Etap 1.4: Zarządzanie Portfelem (UI/UX)
+- [ ] Widok "Mój Portfel": Wyświetlanie listy paragonów z Dexie.js, grupowanie po sklepach.
+- [ ] Formularz dodawania/edycji: Możliwość ręcznej korekty danych przypisanych do zeskanowanego kodu.
+- [ ] Logika terminów ważności: Oznaczanie kolorem czerwonym paragonów, którym zostało mniej niż 3 dni ważności.
+- [ ] Zmiana statusu: Przycisk / Swipe do oznaczania paragonu jako "wykorzystany" i przenoszenie go do Archiwum.
+
+### Etap 1.5: Rozpoznawanie Danych (OCR) - ZADANIE DODATKOWE
+- [ ] Integracja `Tesseract.js`.
+- [ ] Wdrożenie analizy Regex na zrobionym zdjęciu w celu automatycznego wyciągnięcia Daty i Kwoty.
+- [ ] Rozpoznawanie sklepu na podstawie słów kluczowych.
+
+---
+
+## 🌐 FAZA 2: Integracja Backend i Marketplace (Zaplanowane)
+Ta faza zostanie rozpoczęta dopiero po całkowitym ustabilizowaniu i zatwierdzeniu Fazy 1.
+
+### Etap 2.1: Migracja i Autoryzacja
+- [ ] Generowanie anonimowych tokenów/hashy użytkowników zapisywanych w pamięci urządzenia.
+- [ ] Mechanizm "Bulk Upload" synchronizujący lokalne paragony z nowym serwerem backendowym.
+- [ ] Podmiana warstwy serwisów: Dexie.js -> Axios REST API.
+
+### Etap 2.2: Market i Transakcje (Escrow)
+- [ ] Widok Giełdy: Publiczna tablica ofert wystawionych paragonów.
+- [ ] Logika wirtualnego portfela punktowego (1 pkt = 1 zł).
+- [ ] Implementacja mechanizmu Escrow (mrożenie punktów kupującego do momentu potwierdzenia działania kodu).
+- [ ] Moduł wycofywania ofert z Marketu (powrót do prywatnego portfela).
+
+### Etap 2.3: Zaufanie i Reputacja
+- [ ] Obliczanie % udanych transakcji dla anonimowych ID.
+- [ ] System zgłaszania fraudów.
+- [ ] Algorytmy karzące / automatyczne bany.
