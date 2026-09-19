@@ -36,6 +36,7 @@ Budowa autonomicznej aplikacji działającej lokalnie w przeglądarce, z wykorzy
 - [x] Sprzętowe sterowanie kamerą: Przyciski Zoom (1x, 2x, 3x) oraz przełącznik latarki (Torch) do ostrego kadrowania bez utraty ostrości makro.
 - [x] Wieloprzebiegowy analizator zdjęć (Multi-Pass Engine): automatyczna normalizacja kontrastu papieru termicznego oraz analiza pasmowa długich paragonów.
 - [x] Sygnalizacja sukcesu: Dźwięk Web Audio API + wibracje haptyczne urządzenia.
+- [x] Opracowanie master dokumentacji `SCANER.md`: analiza, konfiguracja, gotowe wzorce i blueprint dla przyszłych projektów.
 
 ### Etap 1.4: Zarządzanie Portfelem (UI/UX)
 - [ ] Widok "Mój Portfel": Wyświetlanie listy paragonów z Dexie.js, grupowanie po sklepach.
