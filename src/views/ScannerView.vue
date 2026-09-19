@@ -1,13 +1,14 @@
 <template>
   <div class="scanner-container">
-    <div id="reader" class="scanner-reader"></div>
+    <!-- Czysty element video dla ZXing -->
+    <video ref="videoElement" class="scanner-reader" autoplay muted playsinline></video>
 
     <div class="scanner-ui-overlay" :class="{ 'scanning': isScanning, 'success': scanResult }">
       <div class="scanner-header">
         <h1>Skanuj Paragon</h1>
         <p>Umieść kod kreskowy kaucji w ramce</p>
         
-        <!-- Nowa funkcja - przycisk do robienia zdjęcia (fallback) -->
+        <!-- Przycisk do robienia zdjęcia (fallback) -->
         <button class="btn-fallback" @click="triggerFileInput" v-if="!scanResult">
           📷 Nie łapie ostrości? Zrób zdjęcie
         </button>
@@ -59,7 +60,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import { BrowserMultiFormatReader, DecodeHintType, BarcodeFormat } from '@zxing/library';
 import { ReceiptService } from '../services/ReceiptService';
 import { useRouter } from 'vue-router';
 
@@ -69,7 +70,8 @@ const isScanning = ref(true);
 const errorMsg = ref('');
 const fileInput = ref(null);
 const manualCode = ref('');
-let html5QrCode = null;
+const videoElement = ref(null);
+let codeReader = null;
 
 const startScanner = async () => {
   errorMsg.value = '';
@@ -77,47 +79,50 @@ const startScanner = async () => {
   scanResult.value = null;
 
   try {
-    html5QrCode = new Html5Qrcode("reader", {
-      formatsToSupport: [ 
-        Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.ITF,
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.QR_CODE
-      ],
-      experimentalFeatures: {
-        useBarCodeDetectorIfSupported: true
+    const hints = new Map();
+    // Optymalizacja na potężne kody: 28 cyfr wymaga skupienia na Code 128
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+      BarcodeFormat.CODE_128,
+      BarcodeFormat.ITF,
+      BarcodeFormat.EAN_13,
+      BarcodeFormat.QR_CODE
+    ]);
+    // Najważniejsza flaga: zmusza algorytm do głębszej analizy m.in obrazów pod kątem i trudnych do odczytania kodów 1D
+    hints.set(DecodeHintType.TRY_HARDER, true);
+
+    codeReader = new BrowserMultiFormatReader(hints);
+
+    // Problem z html5-qrcode polegał na tym, że używał domyślnie jakości "ziemniaka" np. 640x480.
+    // 28-cyfrowy kod potrzebuje bardzo wysokiej rozdzielczości, żeby prążki wielkości 1 piksela się nie zlewały.
+    // Wymuszamy na urządzeniu 1080p lub wyżej z autofocusem.
+    const videoConstraints = {
+      video: {
+        facingMode: "environment",
+        width: { ideal: 1920, min: 1280 },
+        height: { ideal: 1080, min: 720 }
       }
-    });
-    
-    const config = { 
-      fps: 20
     };
 
-    await html5QrCode.start(
-      { facingMode: "environment" },
-      config,
-      (decodedText, decodedResult) => {
-        if (isScanning.value) {
-          html5QrCode.pause(true);
-          isScanning.value = false;
-          scanResult.value = decodedText;
-        }
-      },
-      (errorMessage) => {
-        // Ignorujemy live-błędy
+    // Odpalamy kamerę
+    await codeReader.decodeFromConstraints(videoConstraints, videoElement.value, (result, err) => {
+      if (result && isScanning.value) {
+        // SUKCES - znaleziono kod
+        isScanning.value = false;
+        scanResult.value = result.getText();
+        codeReader.reset(); // wyłącza stream kamery
       }
-    );
+      if (err) {
+        // Zxing wyrzuca błąd "NotFoundException" przy każdej klatce wideo, na której nie ma kodu. To normalne zachowanie.
+      }
+    });
   } catch (err) {
-    console.error("Błąd uruchamiania kamery:", err);
-    errorMsg.value = "Brak dostępu do kamery. Użyj przycisku poniżej, by zrobić zdjęcie ręcznie.";
+    console.error("Błąd uruchamiania kamery ZXing:", err);
+    errorMsg.value = "Brak dostępu do kamery w wymaganej rozdzielczości HD.";
   }
 };
 
 const triggerFileInput = () => {
-  if (fileInput.value) {
-    fileInput.value.click();
-  }
+  if (fileInput.value) fileInput.value.click();
 };
 
 const handleFileUpload = async (event) => {
@@ -126,22 +131,21 @@ const handleFileUpload = async (event) => {
     
     try {
       errorMsg.value = '';
-      if (html5QrCode && html5QrCode.isScanning) {
-        html5QrCode.pause(true);
+      if (codeReader && isScanning.value) {
+        codeReader.reset(); // Stop kamery na żywo
       }
       
-      const decodedText = await html5QrCode.scanFile(imageFile, false);
+      const imgUrl = URL.createObjectURL(imageFile);
+      const result = await codeReader.decodeFromImageUrl(imgUrl);
       
       isScanning.value = false;
-      scanResult.value = decodedText;
+      scanResult.value = result.getText();
     } catch (err) {
-      console.error("Błąd odczytu ze zdjęcia:", err);
-      errorMsg.value = "Nie rozpoznano kodu kreskowego na tym zdjęciu. Zrób ostre zdjęcie samego kodu.";
+      console.error("Błąd odczytu ze zdjęcia (ZXing):", err);
+      errorMsg.value = "Zxing nie rozpoznał kodu na zdjęciu. Spróbuj ostrzejsze zdjęcie z bliższej odległości.";
       
-      if (html5QrCode && html5QrCode.isScanning) {
-        html5QrCode.resume();
-      }
-      setTimeout(() => { if(errorMsg.value.includes("Nie rozpoznano")) errorMsg.value = ''; }, 4000);
+      if (isScanning.value) startScanner();
+      setTimeout(() => { if(errorMsg.value.includes("Zxing nie rozpoznał")) errorMsg.value = ''; }, 5000);
     }
     
     event.target.value = '';
@@ -150,7 +154,7 @@ const handleFileUpload = async (event) => {
 
 const submitManualCode = () => {
   if (manualCode.value.trim().length > 5) {
-    if (html5QrCode && html5QrCode.isScanning) html5QrCode.pause(true);
+    if (codeReader) codeReader.reset();
     isScanning.value = false;
     scanResult.value = manualCode.value.trim();
   } else {
@@ -159,14 +163,9 @@ const submitManualCode = () => {
   }
 };
 
-const stopScanner = async () => {
-  if (html5QrCode && html5QrCode.isScanning) {
-    try {
-      await html5QrCode.stop();
-      html5QrCode.clear();
-    } catch (err) {
-      console.error("Błąd podczas zatrzymywania kamery", err);
-    }
+const stopScanner = () => {
+  if (codeReader) {
+    codeReader.reset(); // zatrzymuje śledzenie streamu
   }
 };
 
@@ -175,9 +174,7 @@ const resetScan = () => {
   isScanning.value = true;
   errorMsg.value = '';
   manualCode.value = '';
-  if (html5QrCode) {
-    html5QrCode.resume();
-  }
+  startScanner();
 };
 
 const saveReceipt = async () => {
