@@ -11,8 +11,8 @@
         <div class="engine-badge" v-if="isScanning">
           {{ engineName }}
         </div>
-        <h1>Skanuj Paragon</h1>
-        <p>Skieruj aparat na kod kreskowy kaucji</p>
+        <h1>Skaner Paragonów</h1>
+        <p>Skieruj obiektyw na kod kreskowy kaucji</p>
 
         <!-- Pasek szybkich narzędzi kamery (Latarka + Zoom) -->
         <div class="camera-controls" v-if="isScanning && (hasTorch || hasZoom)">
@@ -71,29 +71,14 @@
         <div class="scan-target-corner bottom-left"></div>
         <div class="scan-target-corner bottom-right"></div>
         <div class="scan-laser"></div>
-        <div class="target-hint">Trzymaj telefon 20-30 cm od kodu</div>
-      </div>
-
-      <!-- Ręczne wpisywanie kodu -->
-      <div class="manual-fallback glass-panel" v-if="!scanResult">
-        <p>Kod nieczytelny lub uszkodzony? Wpisz numer:</p>
-        <div class="input-group">
-          <input 
-            type="text" 
-            v-model="manualCode" 
-            placeholder="Wpisz np. 9841..." 
-            class="manual-input" 
-            @keyup.enter="submitManualCode"
-          />
-          <button class="btn btn-primary btn-small" @click="submitManualCode">OK</button>
-        </div>
+        <div class="target-hint">Trzymaj obiektyw w odległości 20–30 cm</div>
       </div>
 
       <!-- Karta sukcesu po rozpoznaniu kodu -->
       <transition name="fade-up">
         <div v-if="scanResult" class="scan-result-card glass-panel">
           <div class="success-icon">✓</div>
-          <h3>Kod Rozpoznany Pomyślnie!</h3>
+          <h3>Kod Rozpoznany!</h3>
           <div class="barcode-type-pill">{{ detectedType }}</div>
           <p class="barcode-value">{{ scanResult }}</p>
           <div class="actions">
@@ -126,7 +111,6 @@ const isScanning = ref(true);
 const isAnalyzingPhoto = ref(false);
 const scanResult = ref(null);
 const errorMsg = ref('');
-const manualCode = ref('');
 const engineName = ref('Ładowanie silnika...');
 const detectedType = ref('Code 128 (Kaucja)');
 
@@ -153,7 +137,7 @@ const checkCameraCapabilities = (track) => {
       currentZoom.value = 1;
     }
   } catch (err) {
-    console.warn('Nie można pobrać możliwości kamery:', err);
+    console.warn('Nie można odczytać możliwości aparatu:', err);
   }
 };
 
@@ -232,7 +216,7 @@ const stopCamera = () => {
 const startScanLoop = () => {
   if (scanInterval) clearInterval(scanInterval);
 
-  // Pętla skanująca klatki (~13 fps)
+  // Skanowanie w pętli 15 razy na sekundę (co ~65ms)
   scanInterval = setInterval(async () => {
     if (!isScanning.value || isProcessingFrame || !videoElement.value) return;
     if (videoElement.value.readyState < 2) return;
@@ -244,11 +228,11 @@ const startScanLoop = () => {
         onBarcodeDetected(code);
       }
     } catch (e) {
-      // Ignoruj błędy pojedynczych klatek
+      // Pomiń błędy pojedynczych klatek
     } finally {
       isProcessingFrame = false;
     }
-  }, 75);
+  }, 65);
 };
 
 const onBarcodeDetected = (code) => {
@@ -256,7 +240,7 @@ const onBarcodeDetected = (code) => {
   isScanning.value = false;
   scanResult.value = code;
 
-  // Odgadnięcie typu kodu dla ładnego UI
+  // Rozpoznanie typu kodu
   if (code.length >= 20) {
     detectedType.value = 'Code 128 (Bilet / Paragon Kaucyjny)';
   } else if (code.length === 13) {
@@ -297,19 +281,8 @@ const handleFileUpload = async (event) => {
   }
 };
 
-const submitManualCode = () => {
-  const code = manualCode.value.trim();
-  if (code.length >= 6) {
-    onBarcodeDetected(code);
-  } else {
-    errorMsg.value = 'Wpisany kod jest za krótki.';
-    setTimeout(() => { errorMsg.value = ''; }, 3000);
-  }
-};
-
 const resetScan = () => {
   scanResult.value = null;
-  manualCode.value = '';
   errorMsg.value = '';
   startCamera();
 };
@@ -485,15 +458,15 @@ onUnmounted(() => {
   cursor: not-allowed;
 }
 
-/* Ramka skanowania */
+/* Ramka celownika */
 .scan-target {
   position: absolute;
-  top: 43%;
+  top: 48%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 84%;
-  max-width: 360px;
-  height: 140px;
+  width: 86%;
+  max-width: 370px;
+  height: 150px;
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: 14px;
   box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.65);
@@ -501,25 +474,25 @@ onUnmounted(() => {
 }
 
 .scanning .scan-target {
-  border-color: rgba(79, 192, 141, 0.6);
+  border-color: rgba(79, 192, 141, 0.65);
   box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.65), 0 0 25px rgba(79, 192, 141, 0.35) inset;
 }
 
 .target-hint {
   position: absolute;
-  bottom: -28px;
+  bottom: -32px;
   left: 0;
   width: 100%;
   text-align: center;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.8rem;
   letter-spacing: 0.3px;
 }
 
 .scan-target-corner {
   position: absolute;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border-color: #4fc08d;
   border-style: solid;
   border-width: 0;
@@ -548,37 +521,6 @@ onUnmounted(() => {
   100% { top: 88%; opacity: 0; }
 }
 
-/* Ręczne wpisywanie */
-.manual-fallback {
-  position: absolute;
-  bottom: 110px;
-  width: 90%;
-  max-width: 400px;
-  pointer-events: auto;
-  text-align: center;
-  padding: 14px 18px;
-}
-.manual-fallback p {
-  margin: 0 0 8px 0;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-.input-group {
-  display: flex;
-  gap: 8px;
-}
-.manual-input {
-  flex: 1;
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.3);
-  background: rgba(0,0,0,0.55);
-  color: white;
-  font-size: 0.95rem;
-}
-.manual-input::placeholder { color: #888; }
-.btn-small { padding: 10px 18px; }
-
 /* Karta wyniku */
 .scan-result-card {
   position: absolute;
@@ -590,7 +532,7 @@ onUnmounted(() => {
 }
 
 .glass-panel {
-  background: rgba(25, 30, 36, 0.75);
+  background: rgba(25, 30, 36, 0.8);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.2);

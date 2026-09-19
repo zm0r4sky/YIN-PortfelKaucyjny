@@ -32,6 +32,11 @@ class BarcodeScannerServiceClass {
     this.nativeDetector = null;
     this.nativeSupported = false;
     this.activeEngineName = 'Inicjalizacja...';
+    
+    // Reusable offscreen canvas for frame extraction
+    this.offscreenCanvas = null;
+    this.offscreenCtx = null;
+
     this.initPromise = this.initEngines();
   }
 
@@ -54,7 +59,7 @@ class BarcodeScannerServiceClass {
       }
     }
 
-    // 2. WebAssembly ZXing-C++ Engine
+    // 2. WebAssembly ZXing-C++ Engine (universal for iOS Safari, Firefox, and all browsers)
     this.activeEngineName = '🚀 ZXing-C++ (WebAssembly)';
     console.log('[BarcodeScannerService] ZXing-C++ WebAssembly is ACTIVE');
   }
@@ -67,7 +72,7 @@ class BarcodeScannerServiceClass {
    * Sound & Haptic notification on successful scan
    */
   notifySuccess() {
-    // Audio Beep
+    // Audio Beep (Web Audio API)
     try {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (AudioContextClass) {
@@ -94,6 +99,29 @@ class BarcodeScannerServiceClass {
   }
 
   /**
+   * Helper: Extracts ImageData from HTMLVideoElement for ZXing WASM
+   * zxing-wasm requires ImageData, Blob, or ArrayBuffer (does not accept HTMLVideoElement directly)
+   */
+  getVideoImageData(video) {
+    const w = video.videoWidth;
+    const h = video.videoHeight;
+    if (!w || !h) return null;
+
+    if (!this.offscreenCanvas) {
+      this.offscreenCanvas = document.createElement('canvas');
+      this.offscreenCtx = this.offscreenCanvas.getContext('2d', { willReadFrequently: true });
+    }
+
+    if (this.offscreenCanvas.width !== w || this.offscreenCanvas.height !== h) {
+      this.offscreenCanvas.width = w;
+      this.offscreenCanvas.height = h;
+    }
+
+    this.offscreenCtx.drawImage(video, 0, 0, w, h);
+    return this.offscreenCtx.getImageData(0, 0, w, h);
+  }
+
+  /**
    * Scans a single video frame with hybrid strategy
    * @param {HTMLVideoElement} video
    * @returns {Promise<string|null>}
@@ -101,7 +129,7 @@ class BarcodeScannerServiceClass {
   async scanVideoFrame(video) {
     if (!video || video.readyState < 2) return null;
 
-    // A. Native engine check first (fastest, hardware accelerated ~5ms)
+    // A. Native engine check first (hardware accelerated Google ML Kit ~5ms)
     if (this.nativeSupported && this.nativeDetector) {
       try {
         const barcodes = await this.nativeDetector.detect(video);
@@ -113,14 +141,16 @@ class BarcodeScannerServiceClass {
       }
     }
 
-    // B. WebAssembly ZXing-C++ engine
+    // B. WebAssembly ZXing-C++ engine (converts video frame to ImageData)
     try {
-      const results = await readBarcodes(video, {
+      const imageData = this.getVideoImageData(video);
+      if (!imageData) return null;
+
+      const results = await readBarcodes(imageData, {
         formats: ['Code128', 'EAN13', 'ITF', 'QRCode', 'Code39'],
         tryHarder: true,
         tryRotate: true,
         tryInvert: true,
-        tryDownscale: true,
         binarizer: 'LocalAverage',
         maxNumberOfSymbols: 1
       });
@@ -129,7 +159,7 @@ class BarcodeScannerServiceClass {
         return results[0].text.trim();
       }
     } catch (e) {
-      // No barcode found in this frame
+      // Frame skipped or not found
     }
 
     return null;
@@ -196,7 +226,6 @@ class BarcodeScannerServiceClass {
     }
 
     // --- PASS 3: Sliced crops (if the receipt is tall/vertical) ---
-    // If the image is a long receipt strip, crop into overlapping vertical segments
     if (canvas.height > canvas.width * 1.2) {
       const sliceHeight = Math.round(canvas.height * 0.45);
       const slices = [
@@ -221,7 +250,7 @@ class BarcodeScannerServiceClass {
       }
     }
 
-    throw new Error('Nie udało się odczytać kodu kreskowego z tego zdjęcia. Upewnij się, że kod jest widoczny, nieprześwietlony i ostry.');
+    throw new Error('Nie udało się odczytać kodu kreskowego. Upewnij się, że kod jest widoczny, nieprześwietlony i ostry.');
   }
 
   async scanCanvas(canvas) {
@@ -235,7 +264,9 @@ class BarcodeScannerServiceClass {
     }
 
     try {
-      const wasmResults = await readBarcodes(canvas, {
+      const ctx = canvas.getContext('2d');
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const wasmResults = await readBarcodes(imgData, {
         formats: ['Code128', 'EAN13', 'ITF', 'QRCode', 'Code39'],
         tryHarder: true,
         tryRotate: true,
@@ -260,11 +291,9 @@ class BarcodeScannerServiceClass {
       const data = imgData.data;
       const len = data.length;
 
-      // Find min and max luminance for histogram stretching
       let minLum = 255;
       let maxLum = 0;
 
-      // Sample every 4th pixel for speed
       for (let i = 0; i < len; i += 16) {
         const lum = (data[i] * 77 + data[i + 1] * 150 + data[i + 2] * 29) >> 8;
         if (lum < minLum) minLum = lum;
@@ -275,7 +304,6 @@ class BarcodeScannerServiceClass {
 
       for (let i = 0; i < len; i += 4) {
         const lum = (data[i] * 77 + data[i + 1] * 150 + data[i + 2] * 29) >> 8;
-        // Stretch histogram
         const stretched = Math.min(255, Math.max(0, ((lum - minLum) * 255) / lumRange));
         data[i] = stretched;
         data[i + 1] = stretched;
