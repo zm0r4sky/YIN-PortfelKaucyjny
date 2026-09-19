@@ -961,13 +961,16 @@ onUnmounted(() => {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.75);
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  background: rgba(0, 0, 0, 0.8);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  z-index: 20000;
   pointer-events: auto;
   padding: 16px;
   box-sizing: border-box;
@@ -976,11 +979,12 @@ onUnmounted(() => {
 .save-modal {
   width: 100%;
   max-width: 440px;
-  max-height: 90vh;
+  max-height: calc(100dvh - 32px);
   overflow-y: auto;
   border-radius: 24px;
   padding: 24px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  -webkit-overflow-scrolling: touch;
 }
 
 .duplicate-modal {

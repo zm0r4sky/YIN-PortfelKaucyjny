@@ -294,3 +294,31 @@ code {
     border-right-color: var(--border);
   }
 }
+
+/* Wymuszenie orientacji pionowej na telefonach */
+@media screen and (orientation: landscape) and (max-height: 550px) {
+  body::before {
+    content: "📱\A\A Proszę obrócić telefon do pionu.\A Aplikacja jest zoptymalizowana do pracy w pionie.";
+    white-space: pre-line;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    background: #0f172a;
+    color: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.6;
+    padding: 30px;
+    box-sizing: border-box;
+    z-index: 999999;
+  }
+}

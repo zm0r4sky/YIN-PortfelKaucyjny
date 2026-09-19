@@ -829,14 +829,18 @@ onMounted(() => {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
   background: rgba(0, 0, 0, 0.75);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 16px;
-  z-index: 10000;
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+  z-index: 20000;
   box-sizing: border-box;
 }
 
@@ -844,6 +848,9 @@ onMounted(() => {
   background: #ffffff;
   width: 100%;
   max-width: 420px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   border-radius: 24px;
   padding: 24px;
   text-align: center;
@@ -903,6 +910,9 @@ onMounted(() => {
 .edit-modal {
   width: 100%;
   max-width: 400px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal-select, .modal-input {

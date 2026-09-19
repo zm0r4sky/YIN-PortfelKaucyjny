@@ -18,6 +18,9 @@ export default defineConfig({
         short_name: 'Portfel Kaucyjny',
         description: 'Aplikacja do zarządzania paragonami kaucyjnymi z recyklomatów',
         theme_color: '#ffffff',
+        orientation: 'portrait',
+        display: 'standalone',
+        background_color: '#0f172a',
         icons: [
           {
             src: 'pwa-192x192.png',

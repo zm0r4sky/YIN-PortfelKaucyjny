@@ -10,3 +10,13 @@ app.use(pinia)
 app.use(router)
 
 app.mount('#app')
+
+// Blokada orientacji pionowej (portrait) na urządzeniach mobilnych
+const lockOrientation = () => {
+  if (screen?.orientation?.lock) {
+    screen.orientation.lock('portrait').catch(() => {});
+  }
+};
+window.addEventListener('load', lockOrientation);
+document.addEventListener('touchstart', lockOrientation, { once: true });
+document.addEventListener('click', lockOrientation, { once: true });
