@@ -197,11 +197,14 @@
                 <div class="ocr-tag">
                   Kwota: <strong>{{ ocrResult.extracted.amount ? ocrResult.extracted.amount.toFixed(2) + ' zł' : 'Brak' }}</strong>
                 </div>
+                <div v-if="ocrResult.extracted.print_date" class="ocr-tag">
+                  Wydruk: <strong>{{ ocrResult.extracted.print_date }}</strong>
+                </div>
                 <div class="ocr-tag">
-                  Data: <strong>{{ ocrResult.extracted.expiration_date || 'Brak' }}</strong>
+                  Ważność: <strong>{{ ocrResult.extracted.expiration_date || 'Brak' }}</strong>
                 </div>
                 <button 
-                  v-if="ocrResult.extracted.shop_name || ocrResult.extracted.amount" 
+                  v-if="ocrResult.extracted.shop_name || ocrResult.extracted.amount || ocrResult.extracted.expiration_date" 
                   type="button" 
                   class="btn-apply-ocr"
                   @click="applyOcrValues"
@@ -461,7 +464,16 @@ const startScanLoop = () => {
         if (result.box) {
           computeScreenBoundingBox(result.box);
         }
-        await onBarcodeDetected(result.text);
+        let frameSnapshot = null;
+        try {
+          const snapCanvas = document.createElement('canvas');
+          snapCanvas.width = videoElement.value.videoWidth;
+          snapCanvas.height = videoElement.value.videoHeight;
+          const ctx = snapCanvas.getContext('2d');
+          ctx.drawImage(videoElement.value, 0, 0);
+          frameSnapshot = snapCanvas;
+        } catch (_) {}
+        await onBarcodeDetected(result.text, frameSnapshot);
       }
     } catch (e) {
       // Ignoruj błędy pojedynczych klatek

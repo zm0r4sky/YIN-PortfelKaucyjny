@@ -89,10 +89,13 @@ class OcrServiceClass {
     const text = ret.data.text || '';
     const confidence = ret.data.confidence || 0;
 
+    const dateInfo = this.extractDates(text);
+
     const extracted = {
       shop_name: this.extractShop(text),
       amount: this.extractAmount(text),
-      expiration_date: this.extractExpirationDate(text)
+      expiration_date: dateInfo.expiration_date,
+      print_date: dateInfo.print_date
     };
 
     return {
@@ -176,36 +179,85 @@ class OcrServiceClass {
   }
 
   /**
-   * Detects expiration date or receipt date (+ 30 days)
+   * Wykrywa datę wydruku i termin ważności (+30 dni lub podany bezpośrednio).
+   * Obsługuje m.in. format Lidla: HH:MM:SS DD-MMM-YYYY (np. 17:06:52 16-LUT-2026)
    */
-  extractExpirationDate(text) {
-    if (!text) return null;
+  extractDates(text) {
+    if (!text) return { print_date: null, expiration_date: null };
 
-    // 1. Wyszukaj bezpośredni termin ważności po słowach: termin, ważny do, ważność
+    const MONTH_MAP = {
+      // Polskie skróty
+      'STY': 0, 'LUT': 1, 'MAR': 2, 'KWI': 3, 'MAJ': 4, 'CZE': 5,
+      'LIP': 6, 'SIE': 7, 'WRZ': 8, 'PAZ': 9, 'PAŹ': 9, 'LIS': 10, 'GRU': 11,
+      // Polskie pełne nazwy
+      'STYCZEN': 0, 'STYCZNIA': 0, 'LUTY': 1, 'LUTEGO': 1, 'MARZEC': 2, 'MARCA': 2,
+      'KWIECIEN': 3, 'KWIETNIA': 3, 'CZERWIEC': 5, 'CZERWCA': 5, 'LIPIEC': 6, 'LIPCA': 6,
+      'SIERPIEN': 7, 'SIERPNIA': 7, 'WRZESIEN': 8, 'WRZESNIA': 8, 'PAZDZIERNIK': 9, 'PAZDZIERNIKA': 9,
+      'LISTOPAD': 10, 'LISTOPADA': 10, 'GRUDZIEN': 11, 'GRUDZIA': 11,
+      // Angielskie skróty
+      'JAN': 0, 'FEB': 1, 'APR': 3, 'MAY': 4, 'JUN': 5,
+      'JUL': 6, 'AUG': 7, 'SEP': 8, 'OCT': 9, 'NOV': 10, 'DEC': 11
+    };
+
+    let printDateStr = null;
+    let expDateStr = null;
+
+    // 1. Bezpośredni termin ważności z tekstu (np. "termin waznosci: 19.10.2026" lub "ważny do 19-10-2026")
     const expRegex = /(?:termin\s*wa[żz]no[sś]ci|wa[żz]n[yae]\s*do|wa[żz]no[sś][cć]|do\s*dnia)\s*[:=]?\s*(\d{2}[\.\-\/]\d{2}[\.\-\/]\d{4})/i;
     const matchExp = text.match(expRegex);
     if (matchExp && matchExp[1]) {
-      return this.normalizeDate(matchExp[1]);
+      expDateStr = this.normalizeDate(matchExp[1]);
     }
 
-    // 2. Wyszukaj datę wydruku DD-MM-YYYY, DD.MM.YYYY, DD/MM/YYYY lub YYYY-MM-DD
-    const dateRegex = /(?:data\s*(?:wydruku|wystawienia)?\s*[:=]?\s*)?(\d{2})[\.\-\/](\d{2})[\.\-\/](\d{4})/i;
-    const matchDate = text.match(dateRegex);
-    if (matchDate) {
-      // Data wydruku -> dodajemy 30 dni ważności (standard sklepowy)
-      const day = parseInt(matchDate[1], 10);
-      const month = parseInt(matchDate[2], 10) - 1;
-      const year = parseInt(matchDate[3], 10);
-      const printDate = new Date(year, month, day);
-
-      if (!isNaN(printDate.getTime())) {
-        const exp = new Date(printDate);
-        exp.setDate(exp.getDate() + 30);
-        return exp.toISOString().split('T')[0];
+    // 2. Format specyficzny dla Lidla: DD-MMM-YYYY (np. 16-LUT-2026 lub z godziną 17:06:52 16-LUT-2026)
+    const lidlDateRegex = /(\d{1,2})[\.\-\/\s]([A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż]{3,12})[\.\-\/\s](\d{4})/i;
+    const matchLidl = text.match(lidlDateRegex);
+    if (matchLidl) {
+      const day = parseInt(matchLidl[1], 10);
+      const rawMonth = matchLidl[2].toUpperCase()
+        .replace(/Ą/g, 'A').replace(/Ć/g, 'C').replace(/Ę/g, 'E')
+        .replace(/Ł/g, 'L').replace(/Ń/g, 'N').replace(/Ó/g, 'O')
+        .replace(/Ś/g, 'S').replace(/Ź/g, 'Z').replace(/Ż/g, 'Z');
+      const month = MONTH_MAP[rawMonth] !== undefined ? MONTH_MAP[rawMonth] : MONTH_MAP[rawMonth.slice(0, 3)];
+      
+      if (month !== undefined) {
+        const year = parseInt(matchLidl[3], 10);
+        const d = new Date(Date.UTC(year, month, day));
+        if (!isNaN(d.getTime())) {
+          printDateStr = d.toISOString().split('T')[0];
+          if (!expDateStr) {
+            const exp = new Date(Date.UTC(year, month, day));
+            exp.setUTCDate(exp.getUTCDate() + 30);
+            expDateStr = exp.toISOString().split('T')[0];
+          }
+        }
       }
     }
 
-    return null;
+    // 3. Klasyczna data numeryczna DD.MM.YYYY, DD-MM-YYYY, DD/MM/YYYY
+    if (!printDateStr) {
+      const dateRegex = /(?:data\s*(?:wydruku|wystawienia)?\s*[:=]?\s*)?(\d{2})[\.\-\/](\d{2})[\.\-\/](\d{4})/i;
+      const matchDate = text.match(dateRegex);
+      if (matchDate) {
+        const day = parseInt(matchDate[1], 10);
+        const month = parseInt(matchDate[2], 10) - 1;
+        const year = parseInt(matchDate[3], 10);
+        const d = new Date(Date.UTC(year, month, day));
+        if (!isNaN(d.getTime())) {
+          printDateStr = d.toISOString().split('T')[0];
+          if (!expDateStr) {
+            const exp = new Date(Date.UTC(year, month, day));
+            exp.setUTCDate(exp.getUTCDate() + 30);
+            expDateStr = exp.toISOString().split('T')[0];
+          }
+        }
+      }
+    }
+
+    return {
+      print_date: printDateStr,
+      expiration_date: expDateStr
+    };
   }
 
   normalizeDate(dateStr) {
@@ -222,7 +274,7 @@ class OcrServiceClass {
 
   loadImage(source) {
     return new Promise((resolve, reject) => {
-      if (source instanceof Image) return resolve(source);
+      if (source instanceof Image || (typeof HTMLCanvasElement !== 'undefined' && source instanceof HTMLCanvasElement)) return resolve(source);
 
       const img = new Image();
       let url = source;
