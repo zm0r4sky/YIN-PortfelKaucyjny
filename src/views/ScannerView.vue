@@ -1,17 +1,59 @@
 <template>
   <div class="scanner-container">
-    <!-- Czysty element video dla ZXing -->
+    <!-- Czysty element video dla podglądu kamery -->
     <video ref="videoElement" class="scanner-reader" autoplay muted playsinline></video>
 
+    <!-- Nakładka UI skanera -->
     <div class="scanner-ui-overlay" :class="{ 'scanning': isScanning, 'success': scanResult }">
+      
+      <!-- Górny nagłówek z kontrolkami -->
       <div class="scanner-header">
+        <div class="engine-badge" v-if="isScanning">
+          {{ engineName }}
+        </div>
         <h1>Skanuj Paragon</h1>
-        <p>Umieść kod kreskowy kaucji w ramce</p>
+        <p>Skieruj aparat na kod kreskowy kaucji</p>
+
+        <!-- Pasek szybkich narzędzi kamery (Latarka + Zoom) -->
+        <div class="camera-controls" v-if="isScanning && (hasTorch || hasZoom)">
+          <button 
+            v-if="hasTorch" 
+            class="ctrl-btn torch-btn" 
+            :class="{ 'active': isTorchOn }"
+            @click="toggleTorch"
+            title="Włącz/Wyłącz latarkę"
+          >
+            {{ isTorchOn ? '🔦 Wyłącz światło' : '💡 Włącz latarkę' }}
+          </button>
+
+          <div v-if="hasZoom" class="zoom-group">
+            <span class="ctrl-label">Zoom:</span>
+            <button 
+              class="ctrl-btn zoom-btn" 
+              :class="{ 'active': currentZoom === 1 }"
+              @click="setZoom(1)"
+            >1x</button>
+            <button 
+              class="ctrl-btn zoom-btn" 
+              :class="{ 'active': currentZoom === 2 }"
+              @click="setZoom(2)"
+            >2x</button>
+            <button 
+              class="ctrl-btn zoom-btn" 
+              :class="{ 'active': currentZoom === 3 }"
+              @click="setZoom(3)"
+            >3x</button>
+          </div>
+        </div>
         
-        <!-- Przycisk do robienia zdjęcia (fallback) -->
-        <button class="btn-fallback" @click="triggerFileInput" v-if="!scanResult">
-          📷 Nie łapie ostrości? Zrób zdjęcie
-        </button>
+        <!-- Przycisk do robienia zdjęcia (zaawansowany silnik wieloprzebiegowy) -->
+        <div class="fallback-row" v-if="!scanResult">
+          <button class="btn-fallback" @click="triggerFileInput" :disabled="isAnalyzingPhoto">
+            <span v-if="isAnalyzingPhoto">⏳ Analizuję zdjęcie...</span>
+            <span v-else>📷 Zrób zdjęcie / Wgraj plik</span>
+          </button>
+        </div>
+        
         <input 
           type="file" 
           ref="fileInput" 
@@ -22,35 +64,46 @@
         />
       </div>
 
+      <!-- Ramka celownika z laserem -->
       <div class="scan-target" v-if="!scanResult">
         <div class="scan-target-corner top-left"></div>
         <div class="scan-target-corner top-right"></div>
         <div class="scan-target-corner bottom-left"></div>
         <div class="scan-target-corner bottom-right"></div>
         <div class="scan-laser"></div>
+        <div class="target-hint">Trzymaj telefon 20-30 cm od kodu</div>
       </div>
 
-      <!-- Ręczne wpisywanie -->
+      <!-- Ręczne wpisywanie kodu -->
       <div class="manual-fallback glass-panel" v-if="!scanResult">
-        <p>Skaner nie daje rady? Wpisz numer ręcznie:</p>
+        <p>Kod nieczytelny lub uszkodzony? Wpisz numer:</p>
         <div class="input-group">
-          <input type="text" v-model="manualCode" placeholder="Wpisz np. 9841..." class="manual-input" />
+          <input 
+            type="text" 
+            v-model="manualCode" 
+            placeholder="Wpisz np. 9841..." 
+            class="manual-input" 
+            @keyup.enter="submitManualCode"
+          />
           <button class="btn btn-primary btn-small" @click="submitManualCode">OK</button>
         </div>
       </div>
 
+      <!-- Karta sukcesu po rozpoznaniu kodu -->
       <transition name="fade-up">
         <div v-if="scanResult" class="scan-result-card glass-panel">
           <div class="success-icon">✓</div>
-          <h3>Kod Rozpoznany!</h3>
+          <h3>Kod Rozpoznany Pomyślnie!</h3>
+          <div class="barcode-type-pill">{{ detectedType }}</div>
           <p class="barcode-value">{{ scanResult }}</p>
           <div class="actions">
             <button class="btn btn-primary" @click="saveReceipt">Dodaj do portfela</button>
-            <button class="btn btn-secondary" @click="resetScan">Skanuj ponownie</button>
+            <button class="btn btn-secondary" @click="resetScan">Skanuj następny</button>
           </div>
         </div>
       </transition>
       
+      <!-- Komunikaty błędów / powiadomienia -->
       <div v-if="errorMsg && !scanResult" class="error-toast">
         {{ errorMsg }}
       </div>
@@ -60,143 +113,229 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
-import { BrowserMultiFormatReader, DecodeHintType, BarcodeFormat } from '@zxing/library';
-import { ReceiptService } from '../services/ReceiptService';
 import { useRouter } from 'vue-router';
+import { BarcodeScannerService } from '../services/BarcodeScannerService';
+import { ReceiptService } from '../services/ReceiptService';
 
 const router = useRouter();
-const scanResult = ref(null);
-const isScanning = ref(true);
-const errorMsg = ref('');
-const fileInput = ref(null);
-const manualCode = ref('');
-const videoElement = ref(null);
-let codeReader = null;
 
-const startScanner = async () => {
+// Stan UI
+const videoElement = ref(null);
+const fileInput = ref(null);
+const isScanning = ref(true);
+const isAnalyzingPhoto = ref(false);
+const scanResult = ref(null);
+const errorMsg = ref('');
+const manualCode = ref('');
+const engineName = ref('Ładowanie silnika...');
+const detectedType = ref('Code 128 (Kaucja)');
+
+// Kontrolki aparatu (latarka, zoom)
+let currentStream = null;
+let currentTrack = null;
+let scanInterval = null;
+let isProcessingFrame = false;
+
+const hasTorch = ref(false);
+const isTorchOn = ref(false);
+const hasZoom = ref(false);
+const currentZoom = ref(1);
+
+const checkCameraCapabilities = (track) => {
+  if (!track || typeof track.getCapabilities !== 'function') return;
+  try {
+    const caps = track.getCapabilities();
+    if ('torch' in caps) {
+      hasTorch.value = true;
+    }
+    if ('zoom' in caps) {
+      hasZoom.value = true;
+      currentZoom.value = 1;
+    }
+  } catch (err) {
+    console.warn('Nie można pobrać możliwości kamery:', err);
+  }
+};
+
+const toggleTorch = async () => {
+  if (!currentTrack || !hasTorch.value) return;
+  try {
+    isTorchOn.value = !isTorchOn.value;
+    await currentTrack.applyConstraints({
+      advanced: [{ torch: isTorchOn.value }]
+    });
+  } catch (err) {
+    console.error('Błąd sterowania latarką:', err);
+  }
+};
+
+const setZoom = async (level) => {
+  if (!currentTrack || !hasZoom.value) return;
+  try {
+    currentZoom.value = level;
+    await currentTrack.applyConstraints({
+      advanced: [{ zoom: level }]
+    });
+  } catch (err) {
+    console.error('Błąd ustawiania przybliżenia:', err);
+  }
+};
+
+const startCamera = async () => {
   errorMsg.value = '';
   isScanning.value = true;
   scanResult.value = null;
 
   try {
-    const hints = new Map();
-    // Optymalizacja na potężne kody: 28 cyfr wymaga skupienia na Code 128
-    hints.set(DecodeHintType.POSSIBLE_FORMATS, [
-      BarcodeFormat.CODE_128,
-      BarcodeFormat.ITF,
-      BarcodeFormat.EAN_13,
-      BarcodeFormat.QR_CODE
-    ]);
-    // Najważniejsza flaga: zmusza algorytm do głębszej analizy m.in obrazów pod kątem i trudnych do odczytania kodów 1D
-    hints.set(DecodeHintType.TRY_HARDER, true);
-
-    codeReader = new BrowserMultiFormatReader(hints);
-
-    // Problem z html5-qrcode polegał na tym, że używał domyślnie jakości "ziemniaka" np. 640x480.
-    // 28-cyfrowy kod potrzebuje bardzo wysokiej rozdzielczości, żeby prążki wielkości 1 piksela się nie zlewały.
-    // Wymuszamy na urządzeniu 1080p lub wyżej z autofocusem.
-    const videoConstraints = {
+    const constraints = {
       video: {
-        facingMode: "environment",
+        facingMode: { ideal: "environment" },
         width: { ideal: 1920, min: 1280 },
         height: { ideal: 1080, min: 720 }
-      }
+      },
+      audio: false
     };
 
-    // Odpalamy kamerę
-    await codeReader.decodeFromConstraints(videoConstraints, videoElement.value, (result, err) => {
-      if (result && isScanning.value) {
-        // SUKCES - znaleziono kod
-        isScanning.value = false;
-        scanResult.value = result.getText();
-        codeReader.reset(); // wyłącza stream kamery
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    currentStream = stream;
+
+    if (videoElement.value) {
+      videoElement.value.srcObject = stream;
+      await videoElement.value.play();
+
+      const tracks = stream.getVideoTracks();
+      if (tracks && tracks.length > 0) {
+        currentTrack = tracks[0];
+        checkCameraCapabilities(currentTrack);
       }
-      if (err) {
-        // Zxing wyrzuca błąd "NotFoundException" przy każdej klatce wideo, na której nie ma kodu. To normalne zachowanie.
-      }
-    });
+
+      startScanLoop();
+    }
   } catch (err) {
-    console.error("Błąd uruchamiania kamery ZXing:", err);
-    errorMsg.value = "Brak dostępu do kamery w wymaganej rozdzielczości HD.";
+    console.error('Błąd uruchamiania kamery:', err);
+    errorMsg.value = 'Brak dostępu do kamery. Upewnij się, że przyznano uprawnienia lub użyj zdjęcia poniżej.';
   }
 };
 
+const stopCamera = () => {
+  if (scanInterval) {
+    clearInterval(scanInterval);
+    scanInterval = null;
+  }
+  if (currentStream) {
+    currentStream.getTracks().forEach(track => track.stop());
+    currentStream = null;
+    currentTrack = null;
+  }
+};
+
+const startScanLoop = () => {
+  if (scanInterval) clearInterval(scanInterval);
+
+  // Pętla skanująca klatki (~13 fps)
+  scanInterval = setInterval(async () => {
+    if (!isScanning.value || isProcessingFrame || !videoElement.value) return;
+    if (videoElement.value.readyState < 2) return;
+
+    isProcessingFrame = true;
+    try {
+      const code = await BarcodeScannerService.scanVideoFrame(videoElement.value);
+      if (code) {
+        onBarcodeDetected(code);
+      }
+    } catch (e) {
+      // Ignoruj błędy pojedynczych klatek
+    } finally {
+      isProcessingFrame = false;
+    }
+  }, 75);
+};
+
+const onBarcodeDetected = (code) => {
+  if (!isScanning.value) return;
+  isScanning.value = false;
+  scanResult.value = code;
+
+  // Odgadnięcie typu kodu dla ładnego UI
+  if (code.length >= 20) {
+    detectedType.value = 'Code 128 (Bilet / Paragon Kaucyjny)';
+  } else if (code.length === 13) {
+    detectedType.value = 'EAN-13 (Kaucja sklepowa)';
+  } else {
+    detectedType.value = 'Kod Kreskowy';
+  }
+
+  BarcodeScannerService.notifySuccess();
+  stopCamera();
+};
+
 const triggerFileInput = () => {
-  if (fileInput.value) fileInput.value.click();
+  if (fileInput.value) {
+    fileInput.value.click();
+  }
 };
 
 const handleFileUpload = async (event) => {
   if (event.target.files && event.target.files.length > 0) {
-    const imageFile = event.target.files[0];
-    
+    const file = event.target.files[0];
+    isAnalyzingPhoto.value = true;
+    errorMsg.value = '';
+
     try {
-      errorMsg.value = '';
-      if (codeReader && isScanning.value) {
-        codeReader.reset(); // Stop kamery na żywo
-      }
-      
-      const imgUrl = URL.createObjectURL(imageFile);
-      const result = await codeReader.decodeFromImageUrl(imgUrl);
-      
-      isScanning.value = false;
-      scanResult.value = result.getText();
+      const code = await BarcodeScannerService.scanPhotoMultiPass(file);
+      onBarcodeDetected(code);
     } catch (err) {
-      console.error("Błąd odczytu ze zdjęcia (ZXing):", err);
-      errorMsg.value = "Zxing nie rozpoznał kodu na zdjęciu. Spróbuj ostrzejsze zdjęcie z bliższej odległości.";
-      
-      if (isScanning.value) startScanner();
-      setTimeout(() => { if(errorMsg.value.includes("Zxing nie rozpoznał")) errorMsg.value = ''; }, 5000);
+      console.error('Błąd odczytu zdjęcia:', err);
+      errorMsg.value = err.message || 'Nie udało się rozpoznać kodu ze zdjęcia.';
+      setTimeout(() => {
+        if (errorMsg.value.includes('Nie udało się')) errorMsg.value = '';
+      }, 6000);
+    } finally {
+      isAnalyzingPhoto.value = false;
+      event.target.value = '';
     }
-    
-    event.target.value = '';
   }
 };
 
 const submitManualCode = () => {
-  if (manualCode.value.trim().length > 5) {
-    if (codeReader) codeReader.reset();
-    isScanning.value = false;
-    scanResult.value = manualCode.value.trim();
+  const code = manualCode.value.trim();
+  if (code.length >= 6) {
+    onBarcodeDetected(code);
   } else {
-    errorMsg.value = "Wpisany kod jest za krótki.";
+    errorMsg.value = 'Wpisany kod jest za krótki.';
     setTimeout(() => { errorMsg.value = ''; }, 3000);
-  }
-};
-
-const stopScanner = () => {
-  if (codeReader) {
-    codeReader.reset(); // zatrzymuje śledzenie streamu
   }
 };
 
 const resetScan = () => {
   scanResult.value = null;
-  isScanning.value = true;
-  errorMsg.value = '';
   manualCode.value = '';
-  startScanner();
+  errorMsg.value = '';
+  startCamera();
 };
 
 const saveReceipt = async () => {
   if (!scanResult.value) return;
-  
+
   await ReceiptService.addReceipt({
     barcode: scanResult.value,
-    shop_name: 'Nieznany (Wymaga weryfikacji)',
+    shop_name: 'Nieznany (Weryfikacja)',
     amount: 1.00,
     expiration_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     status: 'active'
   });
-  
+
   router.push('/');
 };
 
-onMounted(() => {
-  startScanner();
+onMounted(async () => {
+  await BarcodeScannerService.initPromise;
+  engineName.value = BarcodeScannerService.getEngineName();
+  startCamera();
 });
 
 onUnmounted(() => {
-  stopScanner();
+  stopCamera();
 });
 </script>
 
@@ -218,11 +357,6 @@ onUnmounted(() => {
   object-fit: cover;
 }
 
-:deep(#reader) { border: none !important; }
-:deep(#reader video) { object-fit: cover !important; width: 100% !important; height: 100% !important; }
-:deep(#reader__scan_region) { background: transparent !important; }
-:deep(#reader__dashboard) { display: none !important; }
-
 .scanner-ui-overlay {
   position: absolute;
   top: 0;
@@ -237,179 +371,281 @@ onUnmounted(() => {
 }
 
 .scanner-header {
-  margin-top: 40px;
+  margin-top: 35px;
   text-align: center;
   color: white;
   text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-  background: rgba(0, 0, 0, 0.4);
-  padding: 15px 30px;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 12px 24px;
   border-radius: 20px;
-  backdrop-filter: blur(5px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   pointer-events: auto;
+  max-width: 90%;
+}
+
+.engine-badge {
+  display: inline-block;
+  background: rgba(79, 192, 141, 0.25);
+  border: 1px solid rgba(79, 192, 141, 0.6);
+  color: #4fc08d;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
 }
 
 .scanner-header h1 {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 700;
 }
 
 .scanner-header p {
-  margin: 5px 0 15px;
-  font-size: 0.9rem;
-  opacity: 0.8;
+  margin: 4px 0 10px;
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+/* Narzędzia kamery: latarka i zoom */
+.camera-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.zoom-group {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 3px 6px;
+  border-radius: 10px;
+  gap: 4px;
+}
+
+.ctrl-label {
+  font-size: 0.75rem;
+  color: #ddd;
+  margin-right: 2px;
+}
+
+.ctrl-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ctrl-btn:active {
+  transform: scale(0.94);
+}
+
+.ctrl-btn.active {
+  background: #4fc08d;
+  color: #000;
+  font-weight: 700;
+  border-color: #4fc08d;
+  box-shadow: 0 0 10px rgba(79, 192, 141, 0.5);
+}
+
+.fallback-row {
+  margin-top: 4px;
 }
 
 .btn-fallback {
   background: rgba(255, 255, 255, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.4);
   color: white;
-  padding: 8px 15px;
-  border-radius: 8px;
+  padding: 8px 16px;
+  border-radius: 10px;
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-}
-.btn-fallback:active {
-  transform: scale(0.95);
-  background: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
+.btn-fallback:active {
+  transform: scale(0.96);
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.btn-fallback:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Ramka skanowania */
 .scan-target {
   position: absolute;
-  top: 40%;
+  top: 43%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 80%;
-  max-width: 350px;
-  height: 120px;
+  width: 84%;
+  max-width: 360px;
+  height: 140px;
   border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 12px;
+  border-radius: 14px;
   box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.65);
   transition: all 0.3s ease;
 }
 
 .scanning .scan-target {
-  border-color: rgba(79, 192, 141, 0.5);
-  box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.65), 0 0 20px rgba(79, 192, 141, 0.4) inset;
+  border-color: rgba(79, 192, 141, 0.6);
+  box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.65), 0 0 25px rgba(79, 192, 141, 0.35) inset;
+}
+
+.target-hint {
+  position: absolute;
+  bottom: -28px;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.75rem;
+  letter-spacing: 0.3px;
 }
 
 .scan-target-corner {
   position: absolute;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-color: #4fc08d;
   border-style: solid;
   border-width: 0;
 }
-.top-left { top: -2px; left: -2px; border-top-width: 4px; border-left-width: 4px; border-top-left-radius: 12px; }
-.top-right { top: -2px; right: -2px; border-top-width: 4px; border-right-width: 4px; border-top-right-radius: 12px; }
-.bottom-left { bottom: -2px; left: -2px; border-bottom-width: 4px; border-left-width: 4px; border-bottom-left-radius: 12px; }
-.bottom-right { bottom: -2px; right: -2px; border-bottom-width: 4px; border-right-width: 4px; border-bottom-right-radius: 12px; }
+.top-left { top: -2px; left: -2px; border-top-width: 4px; border-left-width: 4px; border-top-left-radius: 14px; }
+.top-right { top: -2px; right: -2px; border-top-width: 4px; border-right-width: 4px; border-top-right-radius: 14px; }
+.bottom-left { bottom: -2px; left: -2px; border-bottom-width: 4px; border-left-width: 4px; border-bottom-left-radius: 14px; }
+.bottom-right { bottom: -2px; right: -2px; border-bottom-width: 4px; border-right-width: 4px; border-bottom-right-radius: 14px; }
 
 .scan-laser {
   position: absolute;
-  left: 5%;
-  width: 90%;
-  height: 2px;
+  left: 4%;
+  width: 92%;
+  height: 3px;
   background: #4fc08d;
-  box-shadow: 0 0 10px #4fc08d;
+  box-shadow: 0 0 12px #4fc08d, 0 0 4px #fff;
   animation: scan-anim 2s infinite linear;
   display: none;
 }
 .scanning .scan-laser { display: block; }
 
 @keyframes scan-anim {
-  0% { top: 10%; opacity: 0; }
+  0% { top: 12%; opacity: 0; }
   10% { opacity: 1; }
-  90% { top: 90%; opacity: 1; }
-  100% { top: 90%; opacity: 0; }
+  90% { top: 88%; opacity: 1; }
+  100% { top: 88%; opacity: 0; }
 }
 
+/* Ręczne wpisywanie */
 .manual-fallback {
   position: absolute;
-  bottom: 120px;
+  bottom: 110px;
   width: 90%;
   max-width: 400px;
   pointer-events: auto;
   text-align: center;
-  padding: 15px;
+  padding: 14px 18px;
 }
 .manual-fallback p {
-  margin: 0 0 10px 0;
-  font-size: 0.9rem;
-  font-weight: bold;
+  margin: 0 0 8px 0;
+  font-size: 0.85rem;
+  font-weight: 600;
 }
 .input-group {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 .manual-input {
   flex: 1;
-  padding: 10px;
+  padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.4);
-  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.3);
+  background: rgba(0,0,0,0.55);
   color: white;
-  font-size: 1rem;
+  font-size: 0.95rem;
 }
-.manual-input::placeholder { color: #aaa; }
-.btn-small { padding: 10px 20px; }
+.manual-input::placeholder { color: #888; }
+.btn-small { padding: 10px 18px; }
 
+/* Karta wyniku */
 .scan-result-card {
   position: absolute;
   bottom: 80px;
   width: 90%;
-  max-width: 400px;
+  max-width: 420px;
   pointer-events: auto;
   text-align: center;
 }
 
 .glass-panel {
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
+  background: rgba(25, 30, 36, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 24px;
-  padding: 25px;
+  padding: 24px;
   color: white;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
 }
 
 .success-icon {
-  width: 50px;
-  height: 50px;
+  width: 52px;
+  height: 52px;
   background: #4fc08d;
+  color: #000;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
+  font-size: 26px;
   font-weight: bold;
-  margin: 0 auto 15px;
-  box-shadow: 0 0 20px rgba(79, 192, 141, 0.6);
+  margin: 0 auto 12px;
+  box-shadow: 0 0 24px rgba(79, 192, 141, 0.7);
+}
+
+.barcode-type-pill {
+  display: inline-block;
+  background: rgba(79, 192, 141, 0.2);
+  color: #4fc08d;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 12px;
+  margin-bottom: 12px;
 }
 
 .barcode-value {
-  font-size: 1.5rem;
+  font-size: 1.35rem;
   font-weight: 800;
-  letter-spacing: 2px;
-  background: rgba(0,0,0,0.3);
-  padding: 10px;
-  border-radius: 8px;
+  letter-spacing: 1.5px;
+  background: rgba(0,0,0,0.4);
+  padding: 12px 14px;
+  border-radius: 10px;
   margin-bottom: 20px;
   word-break: break-all;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-family: monospace;
 }
 
-.actions { display: flex; flex-direction: column; gap: 12px; }
+.actions { display: flex; flex-direction: column; gap: 10px; }
 
 .btn {
-  padding: 14px 20px;
+  padding: 13px 20px;
   border-radius: 12px;
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.95rem;
   border: none;
   cursor: pointer;
   transition: transform 0.1s, opacity 0.2s;
@@ -418,26 +654,32 @@ onUnmounted(() => {
 
 .btn-primary {
   background: #4fc08d;
-  color: #fff;
+  color: #000;
+  font-weight: 700;
   box-shadow: 0 4px 15px rgba(79, 192, 141, 0.4);
 }
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.15);
   color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
 .error-toast {
   position: absolute;
-  top: 150px;
-  width: 80%;
-  background: rgba(220, 53, 69, 0.9);
+  top: 130px;
+  width: 85%;
+  background: rgba(220, 53, 69, 0.95);
   color: white;
-  padding: 12px 20px;
-  border-radius: 8px;
+  padding: 12px 18px;
+  border-radius: 12px;
   font-weight: 500;
+  font-size: 0.9rem;
   text-align: center;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
-.fade-up-enter-active, .fade-up-leave-active { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-.fade-up-enter-from, .fade-up-leave-to { opacity: 0; transform: translateY(40px) scale(0.95); }
+.fade-up-enter-active, .fade-up-leave-active { transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.fade-up-enter-from, .fade-up-leave-to { opacity: 0; transform: translateY(30px) scale(0.96); }
 </style>

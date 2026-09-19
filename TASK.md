@@ -31,6 +31,11 @@ Budowa autonomicznej aplikacji działającej lokalnie w przeglądarce, z wykorzy
 - [x] Wymuszenie użycia tylnej kamery telefonu (`facingMode: "environment"`).
 - [x] Optymalizacja obszaru skanowania (Scan Area) specjalnie pod jednowymiarowy format Code 128.
 - [x] Stworzenie widoku skanera wyświetlającego zeskanowany ciąg znaków (Proof of Concept działania).
+- [x] Wdrożenie hybrydowego silnika skanowania: Natywny sprzętowy `window.BarcodeDetector` (Google ML Kit na Androidzie) + `zxing-wasm` (ZXing-C++ WebAssembly dla iOS i trudnych ujęć).
+- [x] Pełne wsparcie offline PWA: Lokalny moduł WebAssembly `zxing_reader.wasm` bez zależności od zewnętrznych CDN.
+- [x] Sprzętowe sterowanie kamerą: Przyciski Zoom (1x, 2x, 3x) oraz przełącznik latarki (Torch) do ostrego kadrowania bez utraty ostrości makro.
+- [x] Wieloprzebiegowy analizator zdjęć (Multi-Pass Engine): automatyczna normalizacja kontrastu papieru termicznego oraz analiza pasmowa długich paragonów.
+- [x] Sygnalizacja sukcesu: Dźwięk Web Audio API + wibracje haptyczne urządzenia.
 
 ### Etap 1.4: Zarządzanie Portfelem (UI/UX)
 - [ ] Widok "Mój Portfel": Wyświetlanie listy paragonów z Dexie.js, grupowanie po sklepach.
