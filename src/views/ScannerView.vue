@@ -6,9 +6,22 @@
       <div class="scanner-header">
         <h1>Skanuj Paragon</h1>
         <p>Umieść kod kreskowy kaucji w ramce</p>
+        
+        <!-- Nowa funkcja - przycisk do robienia zdjęcia (fallback) -->
+        <button class="btn-fallback" @click="triggerFileInput" v-if="!scanResult">
+          📷 Nie łapie ostrości? Zrób zdjęcie
+        </button>
+        <input 
+          type="file" 
+          ref="fileInput" 
+          accept="image/*" 
+          capture="environment" 
+          style="display: none;" 
+          @change="handleFileUpload"
+        />
       </div>
 
-      <div class="scan-target">
+      <div class="scan-target" v-if="!scanResult">
         <div class="scan-target-corner top-left"></div>
         <div class="scan-target-corner top-right"></div>
         <div class="scan-target-corner bottom-left"></div>
@@ -45,6 +58,7 @@ const router = useRouter();
 const scanResult = ref(null);
 const isScanning = ref(true);
 const errorMsg = ref('');
+const fileInput = ref(null);
 let html5QrCode = null;
 
 const startScanner = async () => {
@@ -53,7 +67,6 @@ const startScanner = async () => {
   scanResult.value = null;
 
   try {
-    // Z użyciem eksperymentalnego, natywnego API (BarcodeDetector) jeśli przeglądarka wspiera (niesamowicie szybkie na Androidach)
     html5QrCode = new Html5Qrcode("reader", {
       formatsToSupport: [ 
         Html5QrcodeSupportedFormats.CODE_128,
@@ -67,18 +80,14 @@ const startScanner = async () => {
       }
     });
     
-    // Konfiguracja samej pętli skanującej
     const config = { 
-      fps: 20 // Zwiększony klatkaż dla szybszej reakcji
-      // CAŁKOWICIE USUNIĘTO `qrbox` - skaner teraz analizuje całą rozdzielczość matrycy (krawędź do krawędzi)
-      // Nasza ramka to teraz tylko podpowiedź wizualna dla użytkownika
+      fps: 20
     };
 
     await html5QrCode.start(
       { facingMode: "environment" },
       config,
       (decodedText, decodedResult) => {
-        // Callback Sukcesu
         if (isScanning.value) {
           html5QrCode.pause(true);
           isScanning.value = false;
@@ -86,12 +95,51 @@ const startScanner = async () => {
         }
       },
       (errorMessage) => {
-        // Ignorujemy błędy parsowania (bo kamera sypie nimi póki nie znajdzie kodu)
+        // Ignorujemy live-błędy
       }
     );
   } catch (err) {
-    console.error("Błąd podczas uruchamiania kamery:", err);
-    errorMsg.value = "Brak dostępu do kamery. Udziel uprawnień przeglądarce.";
+    console.error("Błąd uruchamiania kamery:", err);
+    errorMsg.value = "Brak dostępu do kamery. Użyj przycisku poniżej, by zrobić zdjęcie ręcznie.";
+  }
+};
+
+const triggerFileInput = () => {
+  if (fileInput.value) {
+    fileInput.value.click();
+  }
+};
+
+const handleFileUpload = async (event) => {
+  if (event.target.files && event.target.files.length > 0) {
+    const imageFile = event.target.files[0];
+    
+    try {
+      errorMsg.value = '';
+      // Zatrzymujemy tymczasowo ciągłe skanowanie kamery
+      if (html5QrCode && html5QrCode.isScanning) {
+        html5QrCode.pause(true);
+      }
+      
+      // Wywołanie analizy statycznego obrazu z urządzenia
+      // Argument 'false' oznacza, by nie rysowało na nowo obrazka w divie kamery
+      const decodedText = await html5QrCode.scanFile(imageFile, false);
+      
+      isScanning.value = false;
+      scanResult.value = decodedText;
+    } catch (err) {
+      console.error("Błąd odczytu ze zdjęcia:", err);
+      errorMsg.value = "Nie rozpoznano kodu kreskowego na tym zdjęciu. Zrób ostre zdjęcie samego kodu.";
+      
+      // Wracamy do skanowania
+      if (html5QrCode && html5QrCode.isScanning) {
+        html5QrCode.resume();
+      }
+      setTimeout(() => { if(errorMsg.value.includes("Nie rozpoznano")) errorMsg.value = ''; }, 4000);
+    }
+    
+    // Czyścimy input by móc wrzucić ten sam plik ponownie
+    event.target.value = '';
   }
 };
 
@@ -109,6 +157,7 @@ const stopScanner = async () => {
 const resetScan = () => {
   scanResult.value = null;
   isScanning.value = true;
+  errorMsg.value = '';
   if (html5QrCode) {
     html5QrCode.resume();
   }
@@ -117,16 +166,14 @@ const resetScan = () => {
 const saveReceipt = async () => {
   if (!scanResult.value) return;
   
-  // W Fazie 1.3 (Proof of concept) dodajemy mockowany paragon by przetestować DB
   await ReceiptService.addReceipt({
     barcode: scanResult.value,
-    shop_name: 'Nieznany (Wymaga edycji)',
+    shop_name: 'Nieznany (Ze zdjęcia/skanera)',
     amount: 1.00,
-    expiration_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // +30 dni
+    expiration_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     status: 'active'
   });
   
-  // Po zapisaniu wracamy do widoku portfela
   router.push('/');
 };
 
@@ -148,7 +195,7 @@ onUnmounted(() => {
   height: 100vh;
   background-color: #000;
   overflow: hidden;
-  z-index: 50; /* Przykrywa bottom-nav podczas skanowania */
+  z-index: 50;
 }
 
 .scanner-reader {
@@ -157,21 +204,10 @@ onUnmounted(() => {
   object-fit: cover;
 }
 
-/* Nadpisywanie ohydnego, domyślnego UI biblioteki html5-qrcode */
-:deep(#reader) {
-  border: none !important;
-}
-:deep(#reader video) {
-  object-fit: cover !important;
-  width: 100% !important;
-  height: 100% !important;
-}
-:deep(#reader__scan_region) {
-  background: transparent !important;
-}
-:deep(#reader__dashboard) {
-  display: none !important;
-}
+:deep(#reader) { border: none !important; }
+:deep(#reader video) { object-fit: cover !important; width: 100% !important; height: 100% !important; }
+:deep(#reader__scan_region) { background: transparent !important; }
+:deep(#reader__dashboard) { display: none !important; }
 
 .scanner-ui-overlay {
   position: absolute;
@@ -192,9 +228,10 @@ onUnmounted(() => {
   color: white;
   text-shadow: 0 2px 4px rgba(0,0,0,0.5);
   background: rgba(0, 0, 0, 0.4);
-  padding: 10px 30px;
+  padding: 15px 30px;
   border-radius: 20px;
   backdrop-filter: blur(5px);
+  pointer-events: auto; /* Zezwalamy na klikanie w header by obsłużyć przycisk */
 }
 
 .scanner-header h1 {
@@ -204,15 +241,31 @@ onUnmounted(() => {
 }
 
 .scanner-header p {
-  margin: 5px 0 0;
+  margin: 5px 0 15px;
   font-size: 0.9rem;
   opacity: 0.8;
 }
 
-/* Stylizowana Ramka Celownika (Code 128) */
+.btn-fallback {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: white;
+  padding: 8px 15px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+.btn-fallback:active {
+  transform: scale(0.95);
+  background: rgba(255, 255, 255, 0.3);
+}
+
 .scan-target {
   position: absolute;
-  top: 40%;
+  top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   width: 80%;
@@ -220,18 +273,13 @@ onUnmounted(() => {
   height: 120px;
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: 12px;
-  box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.65); /* Cień dookoła ramki maskujący resztę */
+  box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.65);
   transition: all 0.3s ease;
 }
 
 .scanning .scan-target {
   border-color: rgba(79, 192, 141, 0.5);
   box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.65), 0 0 20px rgba(79, 192, 141, 0.4) inset;
-}
-
-.success .scan-target {
-  border-color: #4fc08d;
-  background: rgba(79, 192, 141, 0.2);
 }
 
 .scan-target-corner {
@@ -242,13 +290,11 @@ onUnmounted(() => {
   border-style: solid;
   border-width: 0;
 }
-
 .top-left { top: -2px; left: -2px; border-top-width: 4px; border-left-width: 4px; border-top-left-radius: 12px; }
 .top-right { top: -2px; right: -2px; border-top-width: 4px; border-right-width: 4px; border-top-right-radius: 12px; }
 .bottom-left { bottom: -2px; left: -2px; border-bottom-width: 4px; border-left-width: 4px; border-bottom-left-radius: 12px; }
 .bottom-right { bottom: -2px; right: -2px; border-bottom-width: 4px; border-right-width: 4px; border-bottom-right-radius: 12px; }
 
-/* Symulacja "Lasera" */
 .scan-laser {
   position: absolute;
   left: 5%;
@@ -259,10 +305,7 @@ onUnmounted(() => {
   animation: scan-anim 2s infinite linear;
   display: none;
 }
-
-.scanning .scan-laser {
-  display: block;
-}
+.scanning .scan-laser { display: block; }
 
 @keyframes scan-anim {
   0% { top: 10%; opacity: 0; }
@@ -271,7 +314,6 @@ onUnmounted(() => {
   100% { top: 90%; opacity: 0; }
 }
 
-/* Glassmorphism Card (Wynik) */
 .scan-result-card {
   position: absolute;
   bottom: 80px;
@@ -317,11 +359,7 @@ onUnmounted(() => {
   word-break: break-all;
 }
 
-.actions {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
+.actions { display: flex; flex-direction: column; gap: 12px; }
 
 .btn {
   padding: 14px 20px;
@@ -332,17 +370,13 @@ onUnmounted(() => {
   cursor: pointer;
   transition: transform 0.1s, opacity 0.2s;
 }
-
-.btn:active {
-  transform: scale(0.97);
-}
+.btn:active { transform: scale(0.97); }
 
 .btn-primary {
   background: #4fc08d;
   color: #fff;
   box-shadow: 0 4px 15px rgba(79, 192, 141, 0.4);
 }
-
 .btn-secondary {
   background: rgba(255, 255, 255, 0.2);
   color: #fff;
@@ -350,22 +384,16 @@ onUnmounted(() => {
 
 .error-toast {
   position: absolute;
-  top: 100px;
+  top: 150px;
+  width: 80%;
   background: rgba(220, 53, 69, 0.9);
   color: white;
   padding: 12px 20px;
   border-radius: 8px;
   font-weight: 500;
+  text-align: center;
 }
 
-.fade-up-enter-active,
-.fade-up-leave-active {
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.fade-up-enter-from,
-.fade-up-leave-to {
-  opacity: 0;
-  transform: translateY(40px) scale(0.95);
-}
+.fade-up-enter-active, .fade-up-leave-active { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.fade-up-enter-from, .fade-up-leave-to { opacity: 0; transform: translateY(40px) scale(0.95); }
 </style>
