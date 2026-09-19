@@ -45,10 +45,14 @@ Budowa autonomicznej aplikacji działającej lokalnie w przeglądarce, z wykorzy
 - [x] Zmiana statusu: Oznaczanie paragonu jako "wykorzystany" z przeniesieniem do Archiwum oraz opcja przywrócenia/usunięcia.
 - [x] Prezenter Kodu Kreskowego dla Kasjera: Generowanie ostrego obrazu kodu w czasie rzeczywistym z zxing-wasm do zeskanowania przy kasie.
 
+- [x] Detekcja duplikatów: Blokowanie ponownego dodania tego samego kodu z alertem o istniejącym aktywnym paragonie lub opcją przywrócenia z archiwum.
+- [x] Inteligentny Parser Kodów Kreskowych: Dekodowanie sklepu, kwoty i daty bezpośrednio ze struktury kodu (np. 28-cyfrowy Code 128 z Biedronki: prefix, ID sklepu, timestamp unix, kwota w groszach).
+
 ### Etap 1.5: Rozpoznawanie Danych (OCR) - ZADANIE DODATKOWE
-- [ ] Integracja `Tesseract.js`.
-- [ ] Wdrożenie analizy Regex na zrobionym zdjęciu w celu automatycznego wyciągnięcia Daty i Kwoty.
-- [ ] Rozpoznawanie sklepu na podstawie słów kluczowych.
+- [x] Integracja `Tesseract.js` (wsparcie języka polskiego i angielskiego z lazy workerem).
+- [x] Wdrożenie analizy Regex na zrobionym zdjęciu w celu automatycznego wyciągnięcia Daty i Kwoty (wzorce paragonowe: SUMA, RAZEM, ZWROT KAUCJI, daty ISO/kropkowe/kreskowe).
+- [x] Rozpoznawanie sklepu na podstawie słów kluczowych i NIP (Biedronka, Lidl, Dino, Kaufland, Carrefour, itp.).
+- [x] Panel testowy OCR w widoku skanera: wskaźnik postępu, rozpoznane tagi, pewność (confidence %) oraz podgląd surowego tekstu z możliwością przeniesienia do formularza.
 
 ---
 

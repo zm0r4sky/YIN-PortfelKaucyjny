@@ -58,6 +58,24 @@ export const ReceiptService = {
   },
 
   /**
+   * Sprawdza czy kod kreskowy istnieje już w bazie danych (aktywny lub w archiwum).
+   * @param {string} barcode
+   * @returns {Promise<{ isDuplicate: boolean, receipt: Object|null, status: 'none'|'active'|'used' }>}
+   */
+  async checkReceiptDuplicate(barcode) {
+    if (!barcode) return { isDuplicate: false, receipt: null, status: 'none' };
+    const existing = await this.getReceiptByBarcode(barcode.trim());
+    if (!existing) {
+      return { isDuplicate: false, receipt: null, status: 'none' };
+    }
+    return {
+      isDuplicate: true,
+      receipt: existing,
+      status: existing.status
+    };
+  },
+
+  /**
    * Dodaje nowy paragon do wirtualnego portfela.
    * @param {Object} receiptData
    */

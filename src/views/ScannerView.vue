@@ -7,7 +7,7 @@
     <div class="scanner-ui-overlay" :class="{ 'scanning': isScanning, 'success': scanResult }">
       
       <!-- Górny nagłówek z kontrolkami -->
-      <div class="scanner-header" v-if="!showSaveDialog">
+      <div class="scanner-header" v-if="!showSaveDialog && !showDuplicateModal && !showArchivedDuplicateModal">
         <div class="engine-badge" v-if="isScanning">
           {{ engineName }}
         </div>
@@ -46,9 +46,9 @@
           </div>
         </div>
         
-        <!-- Przycisk do robienia zdjęcia (silnik wieloprzebiegowy) -->
+        <!-- Przyciski akcji: Zdjęcie oraz Test OCR -->
         <div class="fallback-row" v-if="!scanResult">
-          <button class="btn-fallback" @click="triggerFileInput" :disabled="isAnalyzingPhoto">
+          <button class="btn-fallback" @click="triggerFileInput" :disabled="isAnalyzingPhoto || isOcrRunning">
             <span v-if="isAnalyzingPhoto">⏳ Analizuję zdjęcie...</span>
             <span v-else>📷 Zrób zdjęcie / Wgraj plik</span>
           </button>
@@ -79,14 +79,90 @@
 
       <!-- Dynamiczna ramka zlokalizowanego kodu (współrzędne na ekranie) -->
       <div 
-        v-if="localizedBoxStyle && !showSaveDialog" 
+        v-if="localizedBoxStyle && !showSaveDialog && !showDuplicateModal && !showArchivedDuplicateModal" 
         class="localized-bounding-box" 
         :style="localizedBoxStyle"
       >
         <span class="lock-label">Zablokowano kod!</span>
       </div>
 
-      <!-- Karta zatwierdzenia i uzupełnienia danych paragonu (Modal) -->
+      <!-- MODAL 1: Ostrzeżenie o DUPLIKACIE w aktywnym portfelu -->
+      <transition name="fade-up">
+        <div v-if="showDuplicateModal" class="save-modal-overlay">
+          <div class="save-modal glass-panel duplicate-modal">
+            <div class="modal-header">
+              <div class="warning-icon">⚠️</div>
+              <h3 class="warning-title">Ten kod jest już w portfelu!</h3>
+              <p class="barcode-preview">#{{ duplicateReceipt?.barcode }}</p>
+            </div>
+
+            <div class="duplicate-details">
+              <p>Zeskanowany paragon został już wcześniej dodany do Twoich aktywnych środków:</p>
+              <div class="duplicate-info-card">
+                <div class="dup-row">
+                  <span>Sklep:</span>
+                  <strong>{{ duplicateReceipt?.shop_name }}</strong>
+                </div>
+                <div class="dup-row">
+                  <span>Wartość kaucji:</span>
+                  <strong class="dup-amount">{{ duplicateReceipt?.amount.toFixed(2) }} zł</strong>
+                </div>
+                <div class="dup-row">
+                  <span>Termin ważności:</span>
+                  <strong>{{ duplicateReceipt?.expiration_date }}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="modal-actions">
+              <button class="btn btn-primary" @click="goToWallet">
+                👛 Przejdź do tego paragonu w portfelu
+              </button>
+              <button class="btn btn-secondary" @click="resetScan">
+                Skanuj inny paragon
+              </button>
+            </div>
+          </div>
+        </div>
+      </transition>
+
+      <!-- MODAL 2: Informacja o DUPLIKACIE w ARCHIWUM -->
+      <transition name="fade-up">
+        <div v-if="showArchivedDuplicateModal" class="save-modal-overlay">
+          <div class="save-modal glass-panel archived-dup-modal">
+            <div class="modal-header">
+              <div class="info-icon">ℹ️</div>
+              <h3>Paragon był już wykorzystany!</h3>
+              <p class="barcode-preview">#{{ duplicateReceipt?.barcode }}</p>
+            </div>
+
+            <div class="duplicate-details">
+              <p>Ten kod znajduje się w Twoim <strong>Archiwum</strong> jako zrealizowany:</p>
+              <div class="duplicate-info-card">
+                <div class="dup-row">
+                  <span>Sklep:</span>
+                  <strong>{{ duplicateReceipt?.shop_name }}</strong>
+                </div>
+                <div class="dup-row">
+                  <span>Kwota:</span>
+                  <strong>{{ duplicateReceipt?.amount.toFixed(2) }} zł</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="modal-actions">
+              <button class="btn btn-primary" @click="restoreDuplicateToActive">
+                ↩ Przywróć do aktywnych paragonów
+              </button>
+              <button class="btn btn-secondary" @click="resetScan">
+                Skanuj inny paragon
+              </button>
+            </div>
+          </div>
+        </div>
+      </transition>
+
+      <!-- MODAL 3: Karta zatwierdzenia i uzupełnienia danych paragonu (Nowy kod) -->
       <transition name="fade-up">
         <div v-if="showSaveDialog" class="save-modal-overlay">
           <div class="save-modal glass-panel">
@@ -96,6 +172,50 @@
               <p class="barcode-preview">{{ scanResult }}</p>
               <div v-if="isAutoParsed" class="auto-detected-badge">
                 ⚡ Dane odczytane automatycznie z kodu
+              </div>
+            </div>
+
+            <!-- Panel Testowy OCR (Tesseract.js) -->
+            <div class="ocr-test-box" v-if="isOcrRunning || ocrResult">
+              <div class="ocr-header">
+                <span>🧪 Wyniki Analizy OCR (Tesseract.js)</span>
+                <span v-if="isOcrRunning" class="ocr-pulse">Analizuję tekst...</span>
+                <span v-else class="ocr-confidence">Pewność: {{ ocrResult?.confidence.toFixed(0) }}%</span>
+              </div>
+
+              <!-- Pasek postępu OCR -->
+              <div v-if="isOcrRunning" class="ocr-progress-bar">
+                <div class="ocr-progress-fill" :style="{ width: (ocrProgress * 100) + '%' }"></div>
+              </div>
+              <p v-if="isOcrRunning" class="ocr-status-text">{{ ocrStatusText }}</p>
+
+              <!-- Podsumowanie danych wyciągniętych przez OCR -->
+              <div v-if="ocrResult && !isOcrRunning" class="ocr-extracted-grid">
+                <div class="ocr-tag">
+                  Sklep: <strong>{{ ocrResult.extracted.shop_name || 'Brak' }}</strong>
+                </div>
+                <div class="ocr-tag">
+                  Kwota: <strong>{{ ocrResult.extracted.amount ? ocrResult.extracted.amount.toFixed(2) + ' zł' : 'Brak' }}</strong>
+                </div>
+                <div class="ocr-tag">
+                  Data: <strong>{{ ocrResult.extracted.expiration_date || 'Brak' }}</strong>
+                </div>
+                <button 
+                  v-if="ocrResult.extracted.shop_name || ocrResult.extracted.amount" 
+                  type="button" 
+                  class="btn-apply-ocr"
+                  @click="applyOcrValues"
+                >
+                  📥 Zastosuj dane z OCR
+                </button>
+              </div>
+
+              <!-- Rozwijany podgląd surowego tekstu z paragonu -->
+              <div v-if="ocrResult && !isOcrRunning" class="raw-ocr-section">
+                <button type="button" class="btn-toggle-raw" @click="showRawOcrText = !showRawOcrText">
+                  {{ showRawOcrText ? '▲ Ukryj surowy tekst OCR' : '▼ Pokaż surowy tekst z paragonu' }}
+                </button>
+                <pre v-if="showRawOcrText" class="raw-text-box">{{ ocrResult.rawText }}</pre>
               </div>
             </div>
 
@@ -168,7 +288,7 @@
       </transition>
       
       <!-- Komunikaty błędów / powiadomienia -->
-      <div v-if="errorMsg && !showSaveDialog" class="error-toast">
+      <div v-if="errorMsg && !showSaveDialog && !showDuplicateModal && !showArchivedDuplicateModal" class="error-toast">
         {{ errorMsg }}
       </div>
     </div>
@@ -181,6 +301,7 @@ import { useRouter } from 'vue-router';
 import { BarcodeScannerService } from '../services/BarcodeScannerService';
 import { BarcodeParserService } from '../services/BarcodeParserService';
 import { ReceiptService } from '../services/ReceiptService';
+import { OcrService } from '../services/OcrService';
 
 const router = useRouter();
 
@@ -196,6 +317,18 @@ const engineName = ref('Ładowanie silnika...');
 const localizedBoxStyle = ref(null);
 const showSaveDialog = ref(false);
 const isAutoParsed = ref(false);
+
+// Duplikaty
+const showDuplicateModal = ref(false);
+const showArchivedDuplicateModal = ref(false);
+const duplicateReceipt = ref(null);
+
+// Stan OCR
+const isOcrRunning = ref(false);
+const ocrProgress = ref(0);
+const ocrStatusText = ref('');
+const ocrResult = ref(null);
+const showRawOcrText = ref(false);
 
 const popularShops = ['Biedronka', 'Lidl', 'Dino', 'Kaufland', 'Carrefour', 'Żabka', 'Inny'];
 
@@ -262,6 +395,10 @@ const startCamera = async () => {
   scanResult.value = null;
   localizedBoxStyle.value = null;
   showSaveDialog.value = false;
+  showDuplicateModal.value = false;
+  showArchivedDuplicateModal.value = false;
+  duplicateReceipt.value = null;
+  ocrResult.value = null;
 
   try {
     const constraints = {
@@ -322,7 +459,7 @@ const startScanLoop = () => {
         if (result.box) {
           computeScreenBoundingBox(result.box);
         }
-        onBarcodeDetected(result.text);
+        await onBarcodeDetected(result.text);
       }
     } catch (e) {
       // Ignoruj błędy pojedynczych klatek
@@ -364,12 +501,30 @@ const computeScreenBoundingBox = (box) => {
   }
 };
 
-const onBarcodeDetected = (code) => {
-  if (!isScanning.value) return;
+/**
+ * Główna obsługa wykrytego kodu z weryfikacją duplikatów
+ */
+const onBarcodeDetected = async (code, sourceFile = null) => {
+  if (!isScanning.value && !showSaveDialog.value && !showDuplicateModal.value) return;
   isScanning.value = false;
   scanResult.value = code;
 
-  // Automatyczna inżynieria wsteczna danych z kodu bez konieczności OCR
+  // --- KROK 1: Sprawdzenie czy kod już istnieje w portfelu (DUPLIKAT) ---
+  const dupCheck = await ReceiptService.checkReceiptDuplicate(code);
+  if (dupCheck.isDuplicate) {
+    duplicateReceipt.value = dupCheck.receipt;
+    BarcodeScannerService.notifySuccess();
+    stopCamera();
+
+    if (dupCheck.status === 'active') {
+      showDuplicateModal.value = true;
+    } else {
+      showArchivedDuplicateModal.value = true;
+    }
+    return;
+  }
+
+  // --- KROK 2: Nowy kod - inżynieria wsteczna danych z kodu ---
   const parsed = BarcodeParserService.parseBarcode(code);
   receiptForm.shop_name = parsed.shop_name || 'Biedronka';
   receiptForm.amount = parsed.amount || 2.00;
@@ -379,6 +534,48 @@ const onBarcodeDetected = (code) => {
   BarcodeScannerService.notifySuccess();
   stopCamera();
   showSaveDialog.value = true;
+
+  // --- KROK 3: Jeśli użytkownik wgrał zdjęcie, uruchom równolegle OCR w trybie testowym ---
+  if (sourceFile) {
+    runOcrTest(sourceFile);
+  }
+};
+
+/**
+ * Uruchomienie testowej analizy OCR na pliku
+ */
+const runOcrTest = async (imageFile) => {
+  isOcrRunning.value = true;
+  ocrProgress.value = 0;
+  ocrStatusText.value = 'Inicjalizacja modelu OCR...';
+  ocrResult.value = null;
+
+  try {
+    const result = await OcrService.recognizeReceipt(imageFile, (m) => {
+      if (m.status === 'recognizing text') {
+        ocrStatusText.value = `Rozpoznawanie tekstu: ${(m.progress * 100).toFixed(0)}%`;
+        ocrProgress.value = m.progress;
+      } else if (m.status === 'loading tesseract core') {
+        ocrStatusText.value = 'Ładowanie jądra Tesseract...';
+      }
+    });
+
+    ocrResult.value = result;
+    console.log('[ScannerView] OCR Result:', result);
+  } catch (err) {
+    console.warn('[ScannerView] OCR error:', err);
+    ocrStatusText.value = 'Nie udało się przetworzyć tekstu OCR.';
+  } finally {
+    isOcrRunning.value = false;
+  }
+};
+
+const applyOcrValues = () => {
+  if (!ocrResult.value?.extracted) return;
+  const ext = ocrResult.value.extracted;
+  if (ext.shop_name) receiptForm.shop_name = ext.shop_name;
+  if (ext.amount) receiptForm.amount = ext.amount;
+  if (ext.expiration_date) receiptForm.expiration_date = ext.expiration_date;
 };
 
 const addAmount = (val) => {
@@ -404,6 +601,7 @@ const confirmSave = async (goToWallet = true) => {
       showSaveDialog.value = false;
       scanResult.value = null;
       localizedBoxStyle.value = null;
+      ocrResult.value = null;
       startCamera();
     }
   } catch (err) {
@@ -416,7 +614,28 @@ const cancelSave = () => {
   showSaveDialog.value = false;
   scanResult.value = null;
   localizedBoxStyle.value = null;
+  ocrResult.value = null;
   startCamera();
+};
+
+const resetScan = () => {
+  showDuplicateModal.value = false;
+  showArchivedDuplicateModal.value = false;
+  duplicateReceipt.value = null;
+  scanResult.value = null;
+  localizedBoxStyle.value = null;
+  ocrResult.value = null;
+  startCamera();
+};
+
+const goToWallet = () => {
+  router.push('/');
+};
+
+const restoreDuplicateToActive = async () => {
+  if (!duplicateReceipt.value) return;
+  await ReceiptService.updateReceiptStatus(duplicateReceipt.value.id, 'active');
+  router.push('/');
 };
 
 const triggerFileInput = () => {
@@ -433,13 +652,15 @@ const handleFileUpload = async (event) => {
 
     try {
       const code = await BarcodeScannerService.scanPhotoMultiPass(file);
-      onBarcodeDetected(code);
+      await onBarcodeDetected(code, file);
     } catch (err) {
       console.error('Błąd odczytu zdjęcia:', err);
-      errorMsg.value = err.message || 'Nie udało się rozpoznać kodu ze zdjęcia.';
+      // Nawet jeśli kod kreskowy nie został wykryty, spróbujmy uruchomić OCR!
+      errorMsg.value = 'Nie wykryto kodu kreskowego. Uruchamiam próbę odczytu tekstu OCR...';
+      runOcrTest(file);
       setTimeout(() => {
-        if (errorMsg.value.includes('Nie udało się')) errorMsg.value = '';
-      }, 6000);
+        if (errorMsg.value.includes('Nie wykryto')) errorMsg.value = '';
+      }, 5000);
     } finally {
       isAnalyzingPhoto.value = false;
       event.target.value = '';
@@ -666,7 +887,7 @@ onUnmounted(() => {
   50% { border-color: #72e3b2; filter: drop-shadow(0 0 4px #4fc08d); }
 }
 
-/* Płynny laser GPU (transform zamiast top) */
+/* Płynny laser GPU */
 .scan-laser {
   position: absolute;
   top: 0;
@@ -715,14 +936,14 @@ onUnmounted(() => {
   letter-spacing: 0.5px;
 }
 
-/* Modal zapisu paragonu */
+/* Modale */
 .save-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.75);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -742,9 +963,74 @@ onUnmounted(() => {
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
 }
 
-.modal-header {
+.duplicate-modal {
+  border: 2px solid #f59e0b !important;
+}
+
+.warning-icon {
+  width: 52px;
+  height: 52px;
+  background: #fef3c7;
+  color: #d97706;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  margin: 0 auto 10px;
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+}
+
+.warning-title {
+  color: #fbbf24 !important;
+}
+
+.info-icon {
+  width: 52px;
+  height: 52px;
+  background: #dbeafe;
+  color: #2563eb;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  margin: 0 auto 10px;
+}
+
+.duplicate-details {
   text-align: center;
   margin-bottom: 20px;
+  font-size: 0.9rem;
+  color: #e2e8f0;
+}
+
+.duplicate-info-card {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 14px;
+  margin-top: 12px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dup-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dup-amount {
+  color: #4fc08d;
+  font-size: 1.2rem;
+}
+
+.modal-header {
+  text-align: center;
+  margin-bottom: 16px;
 }
 
 .modal-header h3 {
@@ -776,6 +1062,109 @@ onUnmounted(() => {
   font-weight: 700;
   padding: 3px 10px;
   border-radius: 12px;
+}
+
+/* Panel Testowy OCR */
+.ocr-test-box {
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.ocr-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #38bdf8;
+  margin-bottom: 8px;
+}
+
+.ocr-pulse {
+  color: #facc15;
+  animation: pulse 1.5s infinite;
+}
+
+.ocr-confidence {
+  color: #a7f3d0;
+}
+
+.ocr-progress-bar {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.ocr-progress-fill {
+  height: 100%;
+  background: #38bdf8;
+  transition: width 0.2s;
+}
+
+.ocr-status-text {
+  font-size: 0.75rem;
+  color: #cbd5e1;
+  margin: 0;
+}
+
+.ocr-extracted-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  align-items: center;
+}
+
+.ocr-tag {
+  background: rgba(0, 0, 0, 0.4);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  color: #e2e8f0;
+}
+
+.btn-apply-ocr {
+  background: #38bdf8;
+  color: #0b1a20;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.raw-ocr-section {
+  margin-top: 8px;
+}
+
+.btn-toggle-raw {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.7rem;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.raw-text-box {
+  background: rgba(0, 0, 0, 0.6);
+  color: #93c5fd;
+  font-size: 0.68rem;
+  padding: 8px;
+  border-radius: 6px;
+  max-height: 100px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  margin: 4px 0 0;
+  font-family: monospace;
 }
 
 .form-body {
