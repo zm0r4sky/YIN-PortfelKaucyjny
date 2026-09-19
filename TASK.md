@@ -12,13 +12,13 @@
 Budowa autonomicznej aplikacji działającej lokalnie w przeglądarce, z wykorzystaniem IndexedDB (Dexie.js).
 
 ### Etap 1.1: Repozytorium, Hosting i Szkielet Aplikacji
-- [ ] Utworzenie publicznego repozytorium o nazwie `YIN-PortfelKaucyjny`.
-- [ ] Konfiguracja i uruchomienie usługi GitHub Pages.
-- [ ] Utworzenie testowego pliku (np. prostego `index.html`) i weryfikacja, czy GitHub Pages poprawnie serwuje stronę online.
-- [ ] Utworzenie docelowego projektu przy pomocy Vite (szablon Vue 3 lub React) po pozytywnym teście hostingu.
-- [ ] Konfiguracja pluginu `vite-plugin-pwa` (generowanie manifestu, service workera do działania offline).
-- [ ] Stworzenie bazowej struktury katalogów (`/components`, `/views`, `/services`, `/store`).
-- [ ] Wdrożenie podstawowego layoutu mobilnego (np. nawigacja dolna).
+- [x] Utworzenie publicznego repozytorium o nazwie `YIN-PortfelKaucyjny`.
+- [x] Konfiguracja i uruchomienie usługi GitHub Pages.
+- [x] Utworzenie testowego pliku (np. prostego `index.html`) i weryfikacja, czy GitHub Pages poprawnie serwuje stronę online.
+- [x] Utworzenie docelowego projektu przy pomocy Vite (szablon Vue 3 lub React) po pozytywnym teście hostingu.
+- [x] Konfiguracja pluginu `vite-plugin-pwa` (generowanie manifestu, service workera do działania offline).
+- [x] Stworzenie bazowej struktury katalogów (`/components`, `/views`, `/services`, `/store`).
+- [x] Wdrożenie podstawowego layoutu mobilnego (np. nawigacja dolna).
 
 ### Etap 1.2: Warstwa Danych (Dexie.js)
 - [ ] Instalacja biblioteki Dexie.js.
