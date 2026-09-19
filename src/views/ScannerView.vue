@@ -12,7 +12,7 @@
           {{ engineName }}
         </div>
         <h1>Skaner Paragonów</h1>
-        <p>Skieruj obiektyw na kod kreskowy kaucji</p>
+        <p>Umieść kod kreskowy w celowniku</p>
 
         <!-- Pasek szybkich narzędzi kamery (Latarka + Zoom) -->
         <div class="camera-controls" v-if="isScanning && (hasTorch || hasZoom)">
@@ -46,7 +46,7 @@
           </div>
         </div>
         
-        <!-- Przycisk do robienia zdjęcia (zaawansowany silnik wieloprzebiegowy) -->
+        <!-- Przycisk do robienia zdjęcia (silnik wieloprzebiegowy) -->
         <div class="fallback-row" v-if="!scanResult">
           <button class="btn-fallback" @click="triggerFileInput" :disabled="isAnalyzingPhoto">
             <span v-if="isAnalyzingPhoto">⏳ Analizuję zdjęcie...</span>
@@ -64,14 +64,26 @@
         />
       </div>
 
-      <!-- Ramka celownika z laserem -->
-      <div class="scan-target" v-if="!scanResult">
+      <!-- Ramka celownika z laserem i czujnikiem aktywnego celowania -->
+      <div ref="targetBoxElement" class="scan-target" v-if="!scanResult">
         <div class="scan-target-corner top-left"></div>
         <div class="scan-target-corner top-right"></div>
         <div class="scan-target-corner bottom-left"></div>
         <div class="scan-target-corner bottom-right"></div>
+        
+        <!-- GPU-przyspieszony płynny laser 60 FPS -->
         <div class="scan-laser"></div>
-        <div class="target-hint">Trzymaj obiektyw w odległości 20–30 cm</div>
+        <div class="target-crosshair"></div>
+        <div class="target-hint">Trzymaj aparat w odległości 20–30 cm</div>
+      </div>
+
+      <!-- Dynamiczna ramka zlokalizowanego kodu (współrzędne na ekranie) -->
+      <div 
+        v-if="localizedBoxStyle" 
+        class="localized-bounding-box" 
+        :style="localizedBoxStyle"
+      >
+        <span class="lock-label">Zablokowano kod!</span>
       </div>
 
       <!-- Karta sukcesu po rozpoznaniu kodu -->
@@ -106,6 +118,7 @@ const router = useRouter();
 
 // Stan UI
 const videoElement = ref(null);
+const targetBoxElement = ref(null);
 const fileInput = ref(null);
 const isScanning = ref(true);
 const isAnalyzingPhoto = ref(false);
@@ -113,6 +126,7 @@ const scanResult = ref(null);
 const errorMsg = ref('');
 const engineName = ref('Ładowanie silnika...');
 const detectedType = ref('Code 128 (Kaucja)');
+const localizedBoxStyle = ref(null);
 
 // Kontrolki aparatu (latarka, zoom)
 let currentStream = null;
@@ -169,6 +183,7 @@ const startCamera = async () => {
   errorMsg.value = '';
   isScanning.value = true;
   scanResult.value = null;
+  localizedBoxStyle.value = null;
 
   try {
     const constraints = {
@@ -216,23 +231,62 @@ const stopCamera = () => {
 const startScanLoop = () => {
   if (scanInterval) clearInterval(scanInterval);
 
-  // Skanowanie w pętli 15 razy na sekundę (co ~65ms)
+  // Skanowanie co ~60ms (~16 fps) z priorytetem obszaru celownika
   scanInterval = setInterval(async () => {
     if (!isScanning.value || isProcessingFrame || !videoElement.value) return;
     if (videoElement.value.readyState < 2) return;
 
     isProcessingFrame = true;
     try {
-      const code = await BarcodeScannerService.scanVideoFrame(videoElement.value);
-      if (code) {
-        onBarcodeDetected(code);
+      // Pobieramy pozycję celownika na ekranie
+      const targetRect = targetBoxElement.value ? targetBoxElement.value.getBoundingClientRect() : null;
+      const result = await BarcodeScannerService.scanVideoFrame(videoElement.value, targetRect);
+      
+      if (result && result.text) {
+        // Jeśli silnik zwrócił ramkę, mapujemy ją na ekran
+        if (result.box) {
+          computeScreenBoundingBox(result.box);
+        }
+        onBarcodeDetected(result.text);
       }
     } catch (e) {
-      // Pomiń błędy pojedynczych klatek
+      // Ignoruj błędy pojedynczych klatek
     } finally {
       isProcessingFrame = false;
     }
-  }, 65);
+  }, 60);
+};
+
+const computeScreenBoundingBox = (box) => {
+  try {
+    const video = videoElement.value;
+    if (!video) return;
+
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    const cw = video.clientWidth;
+    const ch = video.clientHeight;
+
+    const scale = Math.max(cw / vw, ch / vh);
+    const renderedWidth = vw * scale;
+    const renderedHeight = vh * scale;
+    const offsetX = (cw - renderedWidth) / 2;
+    const offsetY = (ch - renderedHeight) / 2;
+
+    const screenX = Math.round(box.x * scale + offsetX);
+    const screenY = Math.round(box.y * scale + offsetY);
+    const screenW = Math.round(box.width * scale);
+    const screenH = Math.round(box.height * scale);
+
+    localizedBoxStyle.value = {
+      left: `${screenX}px`,
+      top: `${screenY}px`,
+      width: `${Math.max(screenW, 80)}px`,
+      height: `${Math.max(screenH, 30)}px`
+    };
+  } catch (e) {
+    console.warn('Błąd mapowania ramki kodu:', e);
+  }
 };
 
 const onBarcodeDetected = (code) => {
@@ -283,6 +337,7 @@ const handleFileUpload = async (event) => {
 
 const resetScan = () => {
   scanResult.value = null;
+  localizedBoxStyle.value = null;
   errorMsg.value = '';
   startCamera();
 };
@@ -471,6 +526,7 @@ onUnmounted(() => {
   border-radius: 14px;
   box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.65);
   transition: all 0.3s ease;
+  overflow: hidden;
 }
 
 .scanning .scan-target {
@@ -480,13 +536,24 @@ onUnmounted(() => {
 
 .target-hint {
   position: absolute;
-  bottom: -32px;
+  bottom: 8px;
   left: 0;
   width: 100%;
   text-align: center;
   color: rgba(255, 255, 255, 0.75);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   letter-spacing: 0.3px;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+}
+
+.target-crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 30px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.25);
 }
 
 .scan-target-corner {
@@ -496,29 +563,65 @@ onUnmounted(() => {
   border-color: #4fc08d;
   border-style: solid;
   border-width: 0;
+  animation: corner-pulse 2s infinite ease-in-out;
 }
 .top-left { top: -2px; left: -2px; border-top-width: 4px; border-left-width: 4px; border-top-left-radius: 14px; }
 .top-right { top: -2px; right: -2px; border-top-width: 4px; border-right-width: 4px; border-top-right-radius: 14px; }
 .bottom-left { bottom: -2px; left: -2px; border-bottom-width: 4px; border-left-width: 4px; border-bottom-left-radius: 14px; }
 .bottom-right { bottom: -2px; right: -2px; border-bottom-width: 4px; border-right-width: 4px; border-bottom-right-radius: 14px; }
 
+@keyframes corner-pulse {
+  0%, 100% { border-color: #4fc08d; }
+  50% { border-color: #72e3b2; filter: drop-shadow(0 0 4px #4fc08d); }
+}
+
+/* Płynny laser GPU (transform zamiast top) */
 .scan-laser {
   position: absolute;
-  left: 4%;
-  width: 92%;
+  top: 0;
+  left: 5%;
+  width: 90%;
   height: 3px;
   background: #4fc08d;
-  box-shadow: 0 0 12px #4fc08d, 0 0 4px #fff;
-  animation: scan-anim 2s infinite linear;
+  box-shadow: 0 0 14px #4fc08d, 0 0 4px #fff;
+  will-change: transform, opacity;
+  animation: scan-anim-gpu 2.2s infinite ease-in-out;
   display: none;
 }
 .scanning .scan-laser { display: block; }
 
-@keyframes scan-anim {
-  0% { top: 12%; opacity: 0; }
-  10% { opacity: 1; }
-  90% { top: 88%; opacity: 1; }
-  100% { top: 88%; opacity: 0; }
+@keyframes scan-anim-gpu {
+  0% { transform: translateY(15px); opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateY(135px); opacity: 0; }
+}
+
+/* Dynamiczna ramka zlokalizowanego kodu */
+.localized-bounding-box {
+  position: absolute;
+  border: 3px solid #4fc08d;
+  background: rgba(79, 192, 141, 0.25);
+  border-radius: 8px;
+  box-shadow: 0 0 20px #4fc08d;
+  pointer-events: none;
+  z-index: 25;
+  transition: all 0.15s ease-out;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.lock-label {
+  background: #4fc08d;
+  color: #000;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transform: translateY(-100%);
+  margin-top: -3px;
+  letter-spacing: 0.5px;
 }
 
 /* Karta wyniku */
@@ -532,7 +635,7 @@ onUnmounted(() => {
 }
 
 .glass-panel {
-  background: rgba(25, 30, 36, 0.8);
+  background: rgba(25, 30, 36, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.2);
