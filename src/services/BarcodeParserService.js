@@ -45,6 +45,7 @@ export const BarcodeParserService = {
           amount: amountPln > 0 ? amountPln : 2.00,
           expiration_date: expDateStr,
           store_id: storeId,
+          has_date: true,
           detected: true,
           pattern_name: 'Biedronka Recyklomat (Code 128)'
         };
@@ -75,6 +76,7 @@ export const BarcodeParserService = {
           store_id: storeId,
           ticket_id: ticketId,
           expiration_date: this.getDefaultExpirationDate(),
+          has_date: false,
           detected: true,
           pattern_name: 'Lidl Butelkomat (Code 128 - 24 cyfry)'
         };
@@ -99,6 +101,7 @@ export const BarcodeParserService = {
           store_id: storeId,
           ticket_id: ticketId,
           expiration_date: this.getDefaultExpirationDate(),
+          has_date: false,
           detected: true,
           pattern_name: 'Lidl Pilotażowy (19 cyfr)'
         };
@@ -113,6 +116,7 @@ export const BarcodeParserService = {
         shop_name: 'Lidl', // Częsty prefiks bonów kaucji
         amount: 1.00,
         expiration_date: this.getDefaultExpirationDate(),
+        has_date: false,
         detected: true,
         pattern_name: 'Kupon EAN-13'
       };
@@ -123,6 +127,7 @@ export const BarcodeParserService = {
       shop_name: 'Biedronka',
       amount: 2.00,
       expiration_date: this.getDefaultExpirationDate(),
+      has_date: false,
       detected: false
     };
   },

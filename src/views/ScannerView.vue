@@ -332,6 +332,8 @@ const showRawOcrText = ref(false);
 
 const popularShops = ['Biedronka', 'Lidl', 'Dino', 'Kaufland', 'Carrefour', 'Żabka', 'Inny'];
 
+const parsedBarcodeHasDate = ref(false);
+
 const receiptForm = reactive({
   shop_name: 'Biedronka',
   amount: 2.00,
@@ -529,6 +531,7 @@ const onBarcodeDetected = async (code, sourceFile = null) => {
   receiptForm.shop_name = parsed.shop_name || 'Biedronka';
   receiptForm.amount = parsed.amount || 2.00;
   receiptForm.expiration_date = parsed.expiration_date || ReceiptService.getDefaultExpirationDate();
+  parsedBarcodeHasDate.value = !!parsed.has_date;
   isAutoParsed.value = parsed.detected;
 
   BarcodeScannerService.notifySuccess();
@@ -562,6 +565,11 @@ const runOcrTest = async (imageFile) => {
 
     ocrResult.value = result;
     console.log('[ScannerView] OCR Result:', result);
+
+    // Jesli kod kreskowy nie mial wlasnej daty (np. Lidl), a OCR znalazl date na wydruku:
+    if (result?.extracted?.expiration_date && !parsedBarcodeHasDate.value) {
+      receiptForm.expiration_date = result.extracted.expiration_date;
+    }
   } catch (err) {
     console.warn('[ScannerView] OCR error:', err);
     ocrStatusText.value = 'Nie udało się przetworzyć tekstu OCR.';

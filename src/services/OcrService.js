@@ -181,18 +181,18 @@ class OcrServiceClass {
   extractExpirationDate(text) {
     if (!text) return null;
 
-    // Wyszukaj datę po słowie TERMIN / WAŻN
-    const expRegex = /(?:termin|wa[żz]n|do\s*dnia)\s*[:=]?\s*(\d{2}[\.-]\d{2}[\.-]\d{4})/i;
+    // 1. Wyszukaj bezpośredni termin ważności po słowach: termin, ważny do, ważność
+    const expRegex = /(?:termin\s*wa[żz]no[sś]ci|wa[żz]n[yae]\s*do|wa[żz]no[sś][cć]|do\s*dnia)\s*[:=]?\s*(\d{2}[\.\-\/]\d{2}[\.\-\/]\d{4})/i;
     const matchExp = text.match(expRegex);
     if (matchExp && matchExp[1]) {
       return this.normalizeDate(matchExp[1]);
     }
 
-    // Wyszukaj jakąkolwiek datę DD.MM.YYYY lub YYYY-MM-DD
-    const dateRegex = /(\d{2})[\.-](\d{2})[\.-](\d{4})/;
+    // 2. Wyszukaj datę wydruku DD-MM-YYYY, DD.MM.YYYY, DD/MM/YYYY lub YYYY-MM-DD
+    const dateRegex = /(?:data\s*(?:wydruku|wystawienia)?\s*[:=]?\s*)?(\d{2})[\.\-\/](\d{2})[\.\-\/](\d{4})/i;
     const matchDate = text.match(dateRegex);
     if (matchDate) {
-      // Data wydruku -> domyślnie dodaj 30 dni ważności
+      // Data wydruku -> dodajemy 30 dni ważności (standard sklepowy)
       const day = parseInt(matchDate[1], 10);
       const month = parseInt(matchDate[2], 10) - 1;
       const year = parseInt(matchDate[3], 10);
@@ -209,7 +209,7 @@ class OcrServiceClass {
   }
 
   normalizeDate(dateStr) {
-    const parts = dateStr.split(/[\.-]/);
+    const parts = dateStr.split(/[\.\-\/]/);
     if (parts.length === 3) {
       if (parts[0].length === 4) {
         return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
