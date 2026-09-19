@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Baza Próbek Paragonów Kaucyjnych - Ekosystem YIN",
   "description": "Zestawienie przebadanych kodów kreskowych z butelkomatów i kas, służące do inżynierii wstecznej struktury danych (kwota, data, sklep, butelkomat) bez konieczności używania OCR.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "patterns": {
     "biedronka_rvm_code128_28": {
       "name": "Biedronka Recyklomat (Code 128 - 28 cyfr)",
@@ -39,11 +39,73 @@
           "description": "Wartość kaucji w groszach (00650 = 650 groszy = 6.50 PLN)"
         }
       }
+    },
+    "lidl_rvm_code128_24": {
+      "name": "Lidl Butelkomat Standard (Code 128 - 24 cyfry)",
+      "regex": "^2010(?<nonDepositGrosze>\\d{4})20(?<depositGrosze>\\d{4})(?<storeId>\\d{4})(?<ticketId>\\d{6})$",
+      "fields": {
+        "prefix": {
+          "indices": [0, 4],
+          "example": "2010",
+          "description": "Prefiks bonu wewnętrznego Lidl (20) + znacznik opakowań bez kaucji (10)"
+        },
+        "nonDepositGrosze": {
+          "indices": [4, 8],
+          "example": "0500",
+          "description": "Kwota za opakowania bez kaucji (zbiórka / eko po 10 gr) w groszach (0500 = 5.00 zł)"
+        },
+        "depositSeparator": {
+          "indices": [8, 10],
+          "example": "20",
+          "description": "Znacznik kaucji ustawowej (20)"
+        },
+        "depositGrosze": {
+          "indices": [10, 14],
+          "example": "0450",
+          "description": "Właściwa kaucja ustawowa w groszach (0450 = 4.50 zł; 50 gr za sztukę)"
+        },
+        "storeId": {
+          "indices": [14, 18],
+          "example": "1944",
+          "description": "4-cyfrowy numer sklepu Lidl"
+        },
+        "ticketId": {
+          "indices": [18, 24],
+          "example": "111416",
+          "description": "6-cyfrowy numer kolejny transakcji/wydruku butelkomatu"
+        }
+      }
+    },
+    "lidl_rvm_legacy_19": {
+      "name": "Lidl / Tomra Format Pilotażowy 2025 (19 cyfr)",
+      "regex": "^200(?<storeId>\\d{4})(?<ticketId>\\d{6})(?<amountGrosze>\\d{6})$",
+      "fields": {
+        "prefix": {
+          "indices": [0, 3],
+          "example": "200",
+          "description": "Prefiks testowy kuponu"
+        },
+        "storeId": {
+          "indices": [3, 7],
+          "example": "1173",
+          "description": "4-cyfrowy numer sklepu"
+        },
+        "ticketId": {
+          "indices": [7, 13],
+          "example": "100505",
+          "description": "6-cyfrowy numer transakcji"
+        },
+        "amountGrosze": {
+          "indices": [13, 19],
+          "example": "000050",
+          "description": "Kwota w groszach (000050 = 50 groszy = 0.50 zł)"
+        }
+      }
     }
   },
   "samples": [
     {
-      "id": "SAMPLE-001",
+      "id": "SAMPLE-BIEDRONKA-001",
       "barcode": "9841016145531178982337100650",
       "barcode_format": "Code 128",
       "barcode_length": 28,
@@ -71,7 +133,185 @@
         "computed_amount_pln": 6.50
       },
       "verification_status": "VERIFIED_100_PERCENT",
-      "notes": "Pewny wzorzec: ostatnie 5 cyfr to kwota w groszach, 9 cyfr na pozycjach 13-22 to Unix Timestamp wydruku."
+      "notes": "Pewny wzorzec Biedronka: ostatnie 5 cyfr to kwota w groszach, 9 cyfr na pozycjach 13-22 to Unix Timestamp wydruku."
+    },
+    {
+      "id": "SAMPLE-LIDL-001",
+      "barcode": "201005002000001944111416",
+      "barcode_format": "Code 128",
+      "barcode_length": 24,
+      "retailer": "Lidl",
+      "amount_pln": 5.00,
+      "non_deposit_amount_pln": 5.00,
+      "deposit_amount_pln": 0.00,
+      "store_id": "1944",
+      "ticket_id": "111416",
+      "verification_status": "VERIFIED_100_PERCENT"
+    },
+    {
+      "id": "SAMPLE-LIDL-002",
+      "barcode": "201007102004501944115498",
+      "barcode_format": "Code 128",
+      "barcode_length": 24,
+      "retailer": "Lidl",
+      "amount_pln": 11.60,
+      "non_deposit_amount_pln": 7.10,
+      "deposit_amount_pln": 4.50,
+      "store_id": "1944",
+      "ticket_id": "115498",
+      "verification_status": "VERIFIED_100_PERCENT"
+    },
+    {
+      "id": "SAMPLE-LIDL-003",
+      "barcode": "2001941100013000035",
+      "barcode_format": "Code 128",
+      "barcode_length": 19,
+      "retailer": "Lidl",
+      "amount_pln": 0.35,
+      "store_id": "1941",
+      "ticket_id": "100013",
+      "verification_status": "VERIFIED_LEGACY_PILOT"
+    },
+    {
+      "id": "SAMPLE-LIDL-004",
+      "barcode": "201006802000001944113095",
+      "barcode_format": "Code 128",
+      "barcode_length": 24,
+      "retailer": "Lidl",
+      "amount_pln": 6.80,
+      "non_deposit_amount_pln": 6.80,
+      "deposit_amount_pln": 0.00,
+      "store_id": "1944",
+      "ticket_id": "113095",
+      "verification_status": "VERIFIED_100_PERCENT"
+    },
+    {
+      "id": "SAMPLE-LIDL-005",
+      "barcode": "201000102000001421103946",
+      "barcode_format": "Code 128",
+      "barcode_length": 24,
+      "retailer": "Lidl",
+      "amount_pln": 0.10,
+      "non_deposit_amount_pln": 0.10,
+      "deposit_amount_pln": 0.00,
+      "store_id": "1421",
+      "ticket_id": "103946",
+      "verification_status": "VERIFIED_100_PERCENT"
+    },
+    {
+      "id": "SAMPLE-LIDL-006",
+      "barcode": "201002602000001944126712",
+      "barcode_format": "Code 128",
+      "barcode_length": 24,
+      "retailer": "Lidl",
+      "amount_pln": 2.60,
+      "non_deposit_amount_pln": 2.60,
+      "deposit_amount_pln": 0.00,
+      "store_id": "1944",
+      "ticket_id": "126712",
+      "verification_status": "VERIFIED_100_PERCENT"
+    },
+    {
+      "id": "SAMPLE-LIDL-007",
+      "barcode": "201006202014501944127822",
+      "barcode_format": "Code 128",
+      "barcode_length": 24,
+      "retailer": "Lidl",
+      "amount_pln": 20.70,
+      "non_deposit_amount_pln": 6.20,
+      "deposit_amount_pln": 14.50,
+      "store_id": "1944",
+      "ticket_id": "127822",
+      "verification_status": "VERIFIED_100_PERCENT"
+    },
+    {
+      "id": "SAMPLE-LIDL-008",
+      "barcode": "201002902001501944126729",
+      "barcode_format": "Code 128",
+      "barcode_length": 24,
+      "retailer": "Lidl",
+      "amount_pln": 4.40,
+      "non_deposit_amount_pln": 2.90,
+      "deposit_amount_pln": 1.50,
+      "store_id": "1944",
+      "ticket_id": "126729",
+      "verification_status": "VERIFIED_100_PERCENT"
+    },
+    {
+      "id": "SAMPLE-LIDL-009",
+      "barcode": "201004802003501632104635",
+      "barcode_format": "Code 128",
+      "barcode_length": 24,
+      "retailer": "Lidl",
+      "amount_pln": 8.30,
+      "non_deposit_amount_pln": 4.80,
+      "deposit_amount_pln": 3.50,
+      "store_id": "1632",
+      "ticket_id": "104635",
+      "verification_status": "VERIFIED_100_PERCENT"
+    },
+    {
+      "id": "SAMPLE-LIDL-010",
+      "barcode": "2001173100505000050",
+      "barcode_format": "Code 128",
+      "barcode_length": 19,
+      "retailer": "Lidl",
+      "amount_pln": 0.50,
+      "store_id": "1173",
+      "ticket_id": "100505",
+      "verification_status": "VERIFIED_LEGACY_PILOT"
+    },
+    {
+      "id": "SAMPLE-LIDL-011",
+      "barcode": "201000002006501458106421",
+      "barcode_format": "Code 128",
+      "barcode_length": 24,
+      "retailer": "Lidl",
+      "amount_pln": 6.50,
+      "non_deposit_amount_pln": 0.00,
+      "deposit_amount_pln": 6.50,
+      "store_id": "1458",
+      "ticket_id": "106421",
+      "verification_status": "VERIFIED_100_PERCENT"
+    },
+    {
+      "id": "SAMPLE-LIDL-012",
+      "barcode": "201009002000001944110582",
+      "barcode_format": "Code 128",
+      "barcode_length": 24,
+      "retailer": "Lidl",
+      "amount_pln": 9.00,
+      "non_deposit_amount_pln": 9.00,
+      "deposit_amount_pln": 0.00,
+      "store_id": "1944",
+      "ticket_id": "110582",
+      "verification_status": "VERIFIED_100_PERCENT"
+    },
+    {
+      "id": "SAMPLE-LIDL-013",
+      "barcode": "201000002001001245207399",
+      "barcode_format": "Code 128",
+      "barcode_length": 24,
+      "retailer": "Lidl",
+      "amount_pln": 1.00,
+      "non_deposit_amount_pln": 0.00,
+      "deposit_amount_pln": 1.00,
+      "store_id": "1245",
+      "ticket_id": "207399",
+      "verification_status": "VERIFIED_100_PERCENT"
+    },
+    {
+      "id": "SAMPLE-LIDL-014",
+      "barcode": "201000002020501016115136",
+      "barcode_format": "Code 128",
+      "barcode_length": 24,
+      "retailer": "Lidl",
+      "amount_pln": 20.50,
+      "non_deposit_amount_pln": 0.00,
+      "deposit_amount_pln": 20.50,
+      "store_id": "1016",
+      "ticket_id": "115136",
+      "verification_status": "VERIFIED_100_PERCENT"
     }
   ]
 }
