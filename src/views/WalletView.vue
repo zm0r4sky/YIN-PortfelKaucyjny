@@ -125,12 +125,20 @@
                 ✓ Wykorzystano
               </button>
               <button 
+                v-if="!receipt.is_verified"
                 class="btn btn-card-edit" 
                 @click="openEditModal(receipt)"
                 title="Edytuj dane paragonu"
               >
                 ✏️
               </button>
+              <span 
+                v-else 
+                class="verified-lock-badge" 
+                title="Paragon zweryfikowany maszynowo – edycja zablokowana"
+              >
+                🛡️ LEGIT
+              </span>
             </div>
           </div>
         </div>
@@ -505,6 +513,10 @@ const markAsUsedFromPresenter = async () => {
 const editAmountText = ref('0,50');
 
 const openEditModal = (receipt) => {
+  if (receipt.is_verified) {
+    showToast('🛡️ Paragon zweryfikowany maszynowo – edycja zablokowana');
+    return;
+  }
   editingReceipt.value = receipt;
   editForm.value = {
     shop_name: receipt.shop_name,
@@ -1212,6 +1224,23 @@ onMounted(() => {
   font-size: 0.9rem;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   z-index: 10001;
+}
+
+.verified-lock-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #065f46;
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  border: 1px solid #6ee7b7;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+  cursor: default;
 }
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }

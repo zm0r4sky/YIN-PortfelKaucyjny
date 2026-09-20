@@ -179,7 +179,10 @@
                 <div class="success-icon">✓</div>
                 <h3>Kod Rozpoznany!</h3>
                 <p class="barcode-preview">#{{ scanResult }}</p>
-                <div v-if="isBarcodeVerified" class="dual-verified-badge" title="Kod ze skanera i z odczytu OCR są identyczne">
+                <div v-if="trustScoreResult.isLegit" class="legit-certified-badge" title="Paragon w 100% autentyczny i zweryfikowany maszynowo (laser + OCR)">
+                  🛡️ 100% LEGIT – ZWERYFIKOWANY (Zablokowany do edycji)
+                </div>
+                <div v-else-if="isBarcodeVerified" class="dual-verified-badge" title="Kod ze skanera i z odczytu OCR są identyczne">
                   ✓✓ Podwójna weryfikacja (Skaner + OCR 100% zgodne)
                 </div>
                 <div v-else-if="recoveredFromOcr" class="ocr-recovered-badge">
@@ -198,6 +201,14 @@
                   <span v-if="isOcrRunning" class="ocr-pulse">Analizuję tekst...</span>
                   <span v-else class="ocr-confidence" title="Średnia czytelność znaków na całym dokumencie wyliczona przez silnik OCR Tesseract.js (0-100%)">
                     Czytelność tekstu: {{ ocrResult?.confidence.toFixed(0) }}%
+                  </span>
+                </div>
+
+                <!-- Pasek wskaźnika Zaufania i Autentyczności -->
+                <div v-if="ocrResult && !isOcrRunning" class="ocr-trust-score-row">
+                  <span class="trust-meter-label">Zaufanie & Wiarygodność:</span>
+                  <span class="trust-meter-value" :class="trustScoreResult.statusClass">
+                    {{ trustScoreResult.score }}/100 pkt • {{ trustScoreResult.statusLabel }}
                   </span>
                 </div>
 
@@ -431,6 +442,7 @@ import { BarcodeScannerService } from '../services/BarcodeScannerService';
 import { BarcodeParserService } from '../services/BarcodeParserService';
 import { ReceiptService } from '../services/ReceiptService';
 import { OcrService } from '../services/OcrService';
+import { TrustScoreService } from '../services/TrustScoreService';
 
 const router = useRouter();
 
@@ -484,6 +496,21 @@ const isDateVerified = computed(() => {
 const isLidlDateVerified = computed(() => {
   const isLidl = receiptForm.shop_name === 'Lidl' || lastParsedBarcode.value?.shop_name === 'Lidl';
   return isLidl && !!ocrResult.value?.extracted?.print_date;
+});
+
+// Wyliczenie łącznego wskaźnika Zaufania i Autentyczności ("100% LEGIT")
+const trustScoreResult = computed(() => {
+  return TrustScoreService.calculateTrustScore({
+    ocrConfidence: ocrResult.value?.confidence || 0,
+    isBarcodeVerified: isBarcodeVerified.value,
+    isChecksumValid: isChecksumValid.value,
+    isShopVerified: isShopVerified.value,
+    shopSignalsCount: ocrResult.value?.extracted?.shop_details?.total_signals_count || 0,
+    isAmountVerified: isAmountVerified.value,
+    isDateVerified: isDateVerified.value,
+    isLidlDateVerified: isLidlDateVerified.value,
+    shopName: receiptForm.shop_name
+  });
 });
 
 // Duplikaty
@@ -946,12 +973,16 @@ const confirmSave = async (goToWallet = true) => {
   if (!scanResult.value) return;
 
   try {
+    const trust = trustScoreResult.value;
     await ReceiptService.addReceipt({
       barcode: scanResult.value,
       shop_name: receiptForm.shop_name,
       amount: receiptForm.amount,
       expiration_date: receiptForm.expiration_date,
-      status: 'active'
+      status: 'active',
+      is_verified: trust.isLegit,
+      trust_score: trust.score,
+      verification_signals: trust.signals
     });
 
     if (goToWallet) {

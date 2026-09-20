@@ -91,6 +91,9 @@ export const ReceiptService = {
       amount: parseFloat(receiptData.amount) || 1.00,
       expiration_date: receiptData.expiration_date || this.getDefaultExpirationDate(),
       status: receiptData.status || 'active',
+      is_verified: !!receiptData.is_verified,
+      trust_score: receiptData.trust_score || 0,
+      verification_signals: receiptData.verification_signals || [],
       created_at: new Date().toISOString()
     };
 
@@ -109,8 +112,21 @@ export const ReceiptService = {
 
   /**
    * Całościowa edycja danych paragonu.
+   * W przypadku paragonów oznaczonych jako "100% LEGIT" (is_verified) pola kwoty,
+   * sklepu i kodu są trwale zablokowane przed manipulacją.
    */
   async updateReceipt(id, updatedData) {
+    const existing = await db.receipts.get(id);
+    if (existing && existing.is_verified) {
+      // Paragon zablokowany – zachowaj oryginalną kwotę, sklep i kod
+      const payload = {
+        expiration_date: updatedData.expiration_date || existing.expiration_date,
+        status: updatedData.status || existing.status,
+        updated_at: new Date().toISOString()
+      };
+      return await db.receipts.update(id, payload);
+    }
+
     const payload = {
       ...updatedData,
       amount: parseFloat(updatedData.amount) || 0,
