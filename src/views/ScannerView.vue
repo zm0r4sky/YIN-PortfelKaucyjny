@@ -262,7 +262,7 @@
                       type="button"
                       class="chip-btn" 
                       :class="{ 'active': receiptForm.shop_name === shop }"
-                      @click="receiptForm.shop_name = shop"
+                      @click="selectShop(shop)"
                     >
                       {{ shop }}
                     </button>
@@ -271,23 +271,46 @@
 
                 <!-- Kwota kaucji -->
                 <div class="form-group">
-                  <label>Wartość kaucji (zł):</label>
-                  <div class="amount-input-row">
+                  <div class="label-with-rule">
+                    <label>Wartość kaucji (zł):</label>
+                    <span v-if="receiptForm.shop_name === 'Biedronka'" class="rule-hint">Wielokrotność 0,50 zł</span>
+                    <span v-else-if="receiptForm.shop_name === 'Lidl'" class="rule-hint">Wielokrotność 0,10 zł (min. 0,10 zł)</span>
+                  </div>
+                  <div class="amount-input-row" :class="{ 'input-invalid': !!amountError }">
                     <input 
-                      type="number" 
-                      step="0.50" 
-                      min="0" 
-                      v-model.number="receiptForm.amount" 
+                      type="text" 
+                      inputmode="decimal" 
+                      v-model="amountInputText" 
+                      @input="onAmountInput" 
+                      @blur="formatAmountInput" 
                       class="amount-input" 
+                      placeholder="0,50" 
                     />
                     <span class="currency">PLN</span>
                   </div>
-                  <!-- Szybkie dodawanie kwot -->
+                  <p v-if="amountError" class="amount-error-text">
+                    ⚠️ {{ amountError }}
+                  </p>
+                  <!-- Szybkie dodawanie kwot (dostosowane do wybranego sklepu) -->
                   <div class="quick-amounts">
-                    <button type="button" class="btn-quick" @click="addAmount(0.50)">+0.50 zł</button>
-                    <button type="button" class="btn-quick" @click="addAmount(1.00)">+1.00 zł</button>
-                    <button type="button" class="btn-quick" @click="addAmount(5.00)">+5.00 zł</button>
-                    <button type="button" class="btn-quick" @click="addAmount(10.00)">+10.00 zł</button>
+                    <template v-if="receiptForm.shop_name === 'Biedronka'">
+                      <button type="button" class="btn-quick" @click="addAmount(0.50)">+0.50 zł</button>
+                      <button type="button" class="btn-quick" @click="addAmount(1.00)">+1.00 zł</button>
+                      <button type="button" class="btn-quick" @click="addAmount(2.50)">+2.50 zł</button>
+                      <button type="button" class="btn-quick" @click="addAmount(5.00)">+5.00 zł</button>
+                    </template>
+                    <template v-else-if="receiptForm.shop_name === 'Lidl'">
+                      <button type="button" class="btn-quick" @click="addAmount(0.10)">+0.10 zł</button>
+                      <button type="button" class="btn-quick" @click="addAmount(0.50)">+0.50 zł</button>
+                      <button type="button" class="btn-quick" @click="addAmount(1.00)">+1.00 zł</button>
+                      <button type="button" class="btn-quick" @click="addAmount(5.00)">+5.00 zł</button>
+                    </template>
+                    <template v-else>
+                      <button type="button" class="btn-quick" @click="addAmount(0.50)">+0.50 zł</button>
+                      <button type="button" class="btn-quick" @click="addAmount(1.00)">+1.00 zł</button>
+                      <button type="button" class="btn-quick" @click="addAmount(2.00)">+2.00 zł</button>
+                      <button type="button" class="btn-quick" @click="addAmount(5.00)">+5.00 zł</button>
+                    </template>
                   </div>
                 </div>
 
@@ -306,7 +329,7 @@
               <div class="modal-actions">
                 <button 
                   class="btn btn-primary" 
-                  :disabled="isOcrRunning" 
+                  :disabled="isOcrRunning || !!amountError" 
                   @click="confirmSave(true)"
                 >
                   <template v-if="isOcrRunning">
@@ -318,7 +341,7 @@
                 </button>
                 <button 
                   class="btn btn-secondary" 
-                  :disabled="isOcrRunning" 
+                  :disabled="isOcrRunning || !!amountError" 
                   @click="confirmSave(false)"
                 >
                   <template v-if="isOcrRunning">
@@ -399,6 +422,9 @@ const receiptForm = reactive({
   amount: 2.00,
   expiration_date: ReceiptService.getDefaultExpirationDate()
 });
+
+const amountInputText = ref('2,00');
+const amountError = ref('');
 
 // Kontrolki aparatu (latarka, zoom)
 let currentStream = null;
@@ -599,11 +625,14 @@ const onBarcodeDetected = async (rawCode, sourceFile = null) => {
   // --- KROK 2: Nowy kod - inżynieria wsteczna danych z kodu ---
   const parsed = BarcodeParserService.parseBarcode(code);
   receiptForm.shop_name = parsed.shop_name || 'Biedronka';
-  receiptForm.amount = (parsed.amount !== undefined && parsed.amount !== null) ? parsed.amount : 2.00;
+  const defaultAmount = receiptForm.shop_name === 'Lidl' ? 1.00 : 0.50;
+  receiptForm.amount = (parsed.amount !== undefined && parsed.amount !== null) ? parsed.amount : defaultAmount;
+  amountInputText.value = formatAmountDisplay(receiptForm.amount);
   receiptForm.expiration_date = parsed.expiration_date || ReceiptService.getDefaultExpirationDate();
   parsedBarcodeHasDate.value = !!parsed.has_date;
   isAutoParsed.value = parsed.detected;
   isChecksumValid.value = parsed.checksum_valid !== undefined ? parsed.checksum_valid : null;
+  validateAmount();
 
   BarcodeScannerService.notifySuccess();
   stopCamera();
@@ -720,20 +749,102 @@ const runOcrTest = async (imageFile) => {
   }
 };
 
+const formatAmountDisplay = (val) => {
+  if (val === null || val === undefined || isNaN(val)) return '0,50';
+  return Number(val).toFixed(2).replace('.', ',');
+};
+
+const validateAmount = () => {
+  const amt = receiptForm.amount;
+  if (amt === null || amt === undefined || isNaN(amt) || amt <= 0) {
+    amountError.value = 'Podaj poprawną wartość kaucji (powyżej 0 zł).';
+    return false;
+  }
+  const grosze = Math.round(amt * 100);
+
+  if (receiptForm.shop_name === 'Biedronka') {
+    if (grosze % 50 !== 0) {
+      amountError.value = 'Dla Biedronki kwota musi być wielokrotnością 0,50 zł (np. 0,50 zł, 1,00 zł, 1,50 zł).';
+      return false;
+    }
+    if (amt < 0.50) {
+      amountError.value = 'Minimalna kwota kaucji w Biedronce to 0,50 zł.';
+      return false;
+    }
+  } else if (receiptForm.shop_name === 'Lidl') {
+    if (grosze % 10 !== 0) {
+      amountError.value = 'Dla Lidla kwota musi być wielokrotnością 0,10 zł (np. 0,10 zł, 0,20 zł, 0,50 zł).';
+      return false;
+    }
+    if (amt < 0.10) {
+      amountError.value = 'Minimalna kwota kaucji w Lidlu to 0,10 zł.';
+      return false;
+    }
+  } else {
+    if (grosze % 10 !== 0) {
+      amountError.value = 'Kwota kaucji musi być wielokrotnością co najmniej 0,10 zł.';
+      return false;
+    }
+    if (amt < 0.10) {
+      amountError.value = 'Minimalna wartość kaucji to 0,10 zł.';
+      return false;
+    }
+  }
+
+  amountError.value = '';
+  return true;
+};
+
+const onAmountInput = (e) => {
+  const val = e.target.value;
+  amountInputText.value = val;
+  const parsed = parseFloat(val.replace(',', '.'));
+  if (!isNaN(parsed)) {
+    receiptForm.amount = parsed;
+  } else {
+    receiptForm.amount = 0;
+  }
+  validateAmount();
+};
+
+const formatAmountInput = () => {
+  if (receiptForm.amount && !isNaN(receiptForm.amount) && receiptForm.amount > 0) {
+    amountInputText.value = formatAmountDisplay(receiptForm.amount);
+  } else {
+    const defaultVal = receiptForm.shop_name === 'Lidl' ? 0.10 : 0.50;
+    receiptForm.amount = defaultVal;
+    amountInputText.value = formatAmountDisplay(defaultVal);
+  }
+  validateAmount();
+};
+
+const selectShop = (shop) => {
+  receiptForm.shop_name = shop;
+  validateAmount();
+};
+
 const applyOcrValues = () => {
   if (!ocrResult.value?.extracted) return;
   const ext = ocrResult.value.extracted;
   if (ext.shop_name) receiptForm.shop_name = ext.shop_name;
-  if (ext.amount) receiptForm.amount = ext.amount;
+  if (ext.amount) {
+    receiptForm.amount = ext.amount;
+    amountInputText.value = formatAmountDisplay(ext.amount);
+  }
   if (ext.expiration_date) receiptForm.expiration_date = ext.expiration_date;
+  validateAmount();
 };
 
 const addAmount = (val) => {
-  receiptForm.amount = Math.round((receiptForm.amount + val) * 100) / 100;
+  const current = receiptForm.amount || 0;
+  receiptForm.amount = Math.round((current + val) * 100) / 100;
+  amountInputText.value = formatAmountDisplay(receiptForm.amount);
+  validateAmount();
 };
 
 const confirmSave = async (goToWallet = true) => {
   if (isOcrRunning.value) return;
+  if (!validateAmount()) return;
   if (!scanResult.value) return;
 
   try {
@@ -757,6 +868,7 @@ const confirmSave = async (goToWallet = true) => {
       showOcrImage.value = false;
       showRawOcrText.value = false;
       isChecksumValid.value = null;
+      amountError.value = '';
       startCamera();
     }
   } catch (err) {
@@ -776,6 +888,7 @@ const cancelSave = () => {
   isDualVerified.value = false;
   recoveredFromOcr.value = false;
   isChecksumValid.value = null;
+  amountError.value = '';
   startCamera();
 };
 
@@ -1475,12 +1588,44 @@ onUnmounted(() => {
   box-shadow: 0 2px 8px rgba(79, 192, 141, 0.5);
 }
 
+.label-with-rule {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rule-hint {
+  font-size: 0.72rem;
+  color: #38bdf8;
+  font-weight: 600;
+  background: rgba(56, 189, 248, 0.12);
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
 .amount-input-row {
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
   box-sizing: border-box;
+}
+
+.amount-input-row.input-invalid .amount-input {
+  border-color: #ef4444;
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.amount-error-text {
+  font-size: 0.76rem;
+  color: #fca5a5;
+  margin: -2px 0 0;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 .amount-input {

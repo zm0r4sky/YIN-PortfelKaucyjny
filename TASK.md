@@ -91,13 +91,18 @@ Budowa autonomicznej aplikacji działającej lokalnie w przeglądarce, z wykorzy
   - Odkrycie i wdrożenie algorytmu sumy kontrolnej GS1 Modulo 10 z wagami 3 i 1 naprzemiennie od prawej do lewej (100% zgodności ze wszystkimi 5 zweryfikowanymi paragonami z Biedronki).
   - Wdrożenie metod `calculateBiedronkaCheckDigit()` i `validateBiedronkaCheckDigit()` w `BarcodeParserService.js`.
   - Wzbogacenie bazy próbek `smaples_to_analize.txt` i `receipt_samples.json` o 4 nowe rzeczywiste paragony z Biedronki (Zielonka, 20-09-2026).
-  - Wyświetlanie wskaźnika `✓ Suma GS1 OK` w oknie podglądu kodu.
 - [x] Kalibracja silnika OCR pod kątem fizycznych paragonów Biedronki:
   - Rozpoznawanie dat w formacie ISO `YYYY-MM-DD` (Biedronka: `DATA WYDRUKU: 2026-09-20 13:20` oraz `Do wykorzystania do dnia:\n2026-10-20`).
   - Udoskonalenie inwersji czarnej belki `[ Suma:0,50zł ]`: precyzyjna detekcja ciemnego pasma poziomego z białym tekstem bez inwersji marginesów papieru i pasków kodu kreskowego (ochrona przed zniekształceniem kodu przy zachowaniu kontrastu napisu Suma).
   - Wzbogacenie słownika detekcji sieci Biedronka o dane adresowe spółki: `Kostrzyn`, `ul. Żniwna 5`, `Codziennie niskie ceny`.
   - Elastyczne wykrywanie kwoty kaucji z linii asortymentowej `1 x Butelka plastikowa 0.50zl  0,50zl` oraz bloku `Suma:0,50zł`.
   - Wzmocnienie ekstraktora 28-cyfrowego kodu kreskowego z tekstu OCR (`extractBarcode`) o zamiany literówkowe cyfr (S->5, Z->2, !->1, B->8).
+- [x] Precyzyjne formatowanie kwoty oraz reguły walidacji wielokrotności (Biedronka / Lidl):
+  - Wymuszenie formatu dwumiejscowego (np. `0,50` zamiast `0,5` oraz `1,00` zamiast `1`) w polach wprowadzania i edycji kwoty.
+  - Reguła walidacji Biedronka: wyłącznie wielokrotność 0,50 zł (min. 0,50 zł) z blokadą przycisków zapisu i czytelnym ostrzeżeniem w modalu.
+  - Reguła walidacji Lidl: wielokrotność 0,10 zł (min. 0,10 zł, z uwagi na butelki/puszki bez kaucji po 10 gr).
+  - Dynamiczne przyciski szybkiego dodawania kwot (`btn-quick`) dostosowujące się do wybranego sklepu (+0.50, +1.00, +2.50, +5.00 dla Biedronki; +0.10, +0.50, +1.00, +5.00 dla Lidla).
+  - Zastosowanie tych samych reguł walidacji w oknie edycji paragonu w portfelu (`WalletView.vue`).
 
 ---
 

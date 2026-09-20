@@ -243,11 +243,16 @@
             <div class="form-group">
               <label>Wartość kaucji (zł):</label>
               <input 
-                type="number" 
-                step="0.50" 
-                v-model.number="editForm.amount" 
+                type="text" 
+                inputmode="decimal" 
+                v-model="editAmountText" 
+                @input="onEditAmountInput"
+                @blur="formatEditAmount"
                 class="modal-input" 
+                placeholder="0,50"
               />
+              <span v-if="editForm.shop_name === 'Biedronka'" style="font-size: 0.72rem; color: #38bdf8; margin-top: 2px;">Wielokrotność 0,50 zł</span>
+              <span v-else-if="editForm.shop_name === 'Lidl'" style="font-size: 0.72rem; color: #38bdf8; margin-top: 2px;">Wielokrotność 0,10 zł (min. 0,10 zł)</span>
             </div>
 
             <div class="form-group">
@@ -497,6 +502,8 @@ const markAsUsedFromPresenter = async () => {
 };
 
 // Edycja
+const editAmountText = ref('0,50');
+
 const openEditModal = (receipt) => {
   editingReceipt.value = receipt;
   editForm.value = {
@@ -504,11 +511,53 @@ const openEditModal = (receipt) => {
     amount: receipt.amount,
     expiration_date: receipt.expiration_date
   };
+  editAmountText.value = Number(receipt.amount).toFixed(2).replace('.', ',');
+};
+
+const onEditAmountInput = (e) => {
+  editAmountText.value = e.target.value;
+  const num = parseFloat(e.target.value.replace(',', '.'));
+  editForm.value.amount = !isNaN(num) ? num : 0;
+};
+
+const formatEditAmount = () => {
+  if (editForm.value.amount && !isNaN(editForm.value.amount) && editForm.value.amount > 0) {
+    editAmountText.value = Number(editForm.value.amount).toFixed(2).replace('.', ',');
+  }
 };
 
 const saveEditedReceipt = async () => {
   if (!editingReceipt.value) return;
-  await ReceiptService.updateReceipt(editingReceipt.value.id, editForm.value);
+  const amt = parseFloat(String(editAmountText.value).replace(',', '.'));
+  if (!amt || isNaN(amt) || amt <= 0) {
+    showToast('⚠️ Podaj poprawną kwotę kaucji');
+    return;
+  }
+  const grosze = Math.round(amt * 100);
+  if (editForm.value.shop_name === 'Biedronka') {
+    if (grosze % 50 !== 0) {
+      showToast('⚠️ Dla Biedronki kwota musi być wielokrotnością 0,50 zł');
+      return;
+    }
+    if (amt < 0.50) {
+      showToast('⚠️ Minimalna kwota w Biedronce to 0,50 zł');
+      return;
+    }
+  } else if (editForm.value.shop_name === 'Lidl') {
+    if (grosze % 10 !== 0) {
+      showToast('⚠️ Dla Lidla kwota musi być wielokrotnością 0,10 zł');
+      return;
+    }
+    if (amt < 0.10) {
+      showToast('⚠️ Minimalna kwota w Lidlu to 0,10 zł');
+      return;
+    }
+  }
+
+  await ReceiptService.updateReceipt(editingReceipt.value.id, {
+    ...editForm.value,
+    amount: amt
+  });
   editingReceipt.value = null;
   showToast('✓ Zmiany zapisane pomyślnie');
   await loadReceipts();
