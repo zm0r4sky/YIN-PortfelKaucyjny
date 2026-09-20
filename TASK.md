@@ -47,12 +47,20 @@ Budowa autonomicznej aplikacji działającej lokalnie w przeglądarce, z wykorzy
 
 - [x] Detekcja duplikatów: Blokowanie ponownego dodania tego samego kodu z alertem o istniejącym aktywnym paragonie lub opcją przywrócenia z archiwum.
 - [x] Inteligentny Parser Kodów Kreskowych: Dekodowanie sklepu, kwoty i daty bezpośrednio ze struktury kodu (np. 28-cyfrowy Code 128 z Biedronki: prefix, ID sklepu, timestamp unix, kwota w groszach).
+- [x] Blokada rotacji ekranu w pionie (Portrait Lock w PWA Manifest, Screen Orientation API, meta tagi mobilne oraz bariera CSS landscape blocker).
+- [x] Korekta warstw z-index okien modalnych: Wyniesienie dialogów zapisu paragonu i duplikatów ponad dolną nawigację (`z-index: 20000`) wraz z responsywnym przewijaniem na niskich ekranach.
 
 ### Etap 1.5: Rozpoznawanie Danych (OCR) - ZADANIE DODATKOWE
 - [x] Integracja `Tesseract.js` (wsparcie języka polskiego i angielskiego z lazy workerem).
 - [x] Wdrożenie analizy Regex na zrobionym zdjęciu w celu automatycznego wyciągnięcia Daty i Kwoty (wzorce paragonowe: SUMA, RAZEM, ZWROT KAUCJI, daty ISO/kropkowe/kreskowe).
 - [x] Rozpoznawanie sklepu na podstawie słów kluczowych i NIP (Biedronka, Lidl, Dino, Kaufland, Carrefour, itp.).
 - [x] Panel testowy OCR w widoku skanera: wskaźnik postępu, rozpoznane tagi, pewność (confidence %) oraz podgląd surowego tekstu z możliwością przeniesienia do formularza.
+- [x] Kalibracja silnika OCR na podstawie rzeczywistych zdjęć paragonów termicznych Lidl/Tomra:
+  - Obsługa formatu `HH:MM:SS DD-MMM-YYYY` z tolerancją zniekształceń matrycy termicznej (np. `URZ`/`VRZ` dla `WRZ`, `LU1`/`LU7` dla `LUT`, `CRU` dla `GRU`).
+  - Inteligentne wyliczanie roku przy urwanej końcówce wydruku (np. `12-GRU-?`).
+  - Rozszerzenie bazy rozpoznawania sieci Lidl o NIP (`7811897358`) i adres centrali (`Jankowice`, `Tarnowo Podgórne`).
+  - Obsługa etykiet kwot wieloliniowych i sum rabatowych (`SUMA RABATU`).
+  - Podgląd przetworzonego filtru obrazu bezpośrednio w interfejsie testowym skanera.
 
 ---
 

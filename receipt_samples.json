@@ -284,7 +284,11 @@
       "non_deposit_amount_pln": 9.00,
       "deposit_amount_pln": 0.00,
       "store_id": "1944",
+      "store_name": "Lidl, al. Jana Pawła II 16, Leszno",
       "ticket_id": "110582",
+      "print_datetime": "2025-12-12T18:33:58",
+      "expiration_date": "2026-01-11",
+      "machine": "Tomra 90",
       "verification_status": "VERIFIED_100_PERCENT"
     },
     {
@@ -312,6 +316,22 @@
       "store_id": "1016",
       "ticket_id": "115136",
       "verification_status": "VERIFIED_100_PERCENT"
+    },
+    {
+      "id": "SAMPLE-LIDL-015",
+      "barcode": "2001241104681000010",
+      "barcode_format": "Code 128",
+      "barcode_length": 19,
+      "retailer": "Lidl",
+      "amount_pln": 0.10,
+      "store_id": "1241",
+      "store_name": "Lidl, ul. Orzeszkowej 2D, Siemianowice Śląskie",
+      "ticket_id": "104681",
+      "print_datetime": "2025-09-10T14:09:56",
+      "expiration_date": "2025-10-10",
+      "machine": "Tomra 90",
+      "verification_status": "VERIFIED_100_PERCENT",
+      "notes": "Paragon z butelkomatu Tomra 90 w Lidlu Siemianowice Śląskie (kod 19 cyfr z pilotażu z 2025)."
     }
   ]
 }

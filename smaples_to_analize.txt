@@ -12,5 +12,6 @@
 201009002000001944110582 lidl raz 9 zł, 28 puszek bez kaucji 2.80 + 62 bute bez kaucji 6.20 data 18:33:58 12-12-2025
 201000002001001245207399 Lidl 2 butelki kaucyjnych razem 1 pln data 17-01-2026 14:16:06
 201000002020501016115136 Lidl 41 butelek kaucyjnyych 20:50 łączeni data marzen-2026
+2001241104681000010 Lidl 1x Butelka bez kacuji 0.10 Data 14:09:59 10-WRZ-2025
 
 

@@ -213,12 +213,20 @@
                 </button>
               </div>
 
-              <!-- Rozwijany podgląd surowego tekstu z paragonu -->
+              <!-- Rozwijany podgląd surowego tekstu z paragonu i obrazu kalibracji -->
               <div v-if="ocrResult && !isOcrRunning" class="raw-ocr-section">
-                <button type="button" class="btn-toggle-raw" @click="showRawOcrText = !showRawOcrText">
-                  {{ showRawOcrText ? '▲ Ukryj surowy tekst OCR' : '▼ Pokaż surowy tekst z paragonu' }}
-                </button>
+                <div class="ocr-toggle-buttons">
+                  <button type="button" class="btn-toggle-raw" @click="showRawOcrText = !showRawOcrText">
+                    {{ showRawOcrText ? '▲ Ukryj tekst OCR' : '▼ Tekst OCR' }}
+                  </button>
+                  <button v-if="ocrPreviewImage" type="button" class="btn-toggle-raw" @click="showOcrImage = !showOcrImage">
+                    {{ showOcrImage ? '▲ Ukryj obraz po filtrze' : '🖼️ Obraz po filtrze' }}
+                  </button>
+                </div>
                 <pre v-if="showRawOcrText" class="raw-text-box">{{ ocrResult.rawText }}</pre>
+                <div v-if="showOcrImage && ocrPreviewImage" class="ocr-image-preview-wrapper">
+                  <img :src="ocrPreviewImage" class="ocr-filtered-img" alt="Podgląd po kalibracji" />
+                </div>
               </div>
             </div>
 
@@ -332,6 +340,8 @@ const ocrProgress = ref(0);
 const ocrStatusText = ref('');
 const ocrResult = ref(null);
 const showRawOcrText = ref(false);
+const showOcrImage = ref(false);
+const ocrPreviewImage = ref(null);
 
 const popularShops = ['Biedronka', 'Lidl', 'Dino', 'Kaufland', 'Carrefour', 'Żabka', 'Inny'];
 
@@ -576,6 +586,13 @@ const runOcrTest = async (imageFile) => {
     });
 
     ocrResult.value = result;
+    if (result?.processedCanvas) {
+      try {
+        ocrPreviewImage.value = result.processedCanvas.toDataURL('image/jpeg', 0.85);
+      } catch (e) {
+        console.warn('Could not generate OCR preview canvas URL', e);
+      }
+    }
     console.log('[ScannerView] OCR Result:', result);
 
     // Jesli kod kreskowy nie mial wlasnej daty (np. Lidl), a OCR znalazl date na wydruku:
@@ -622,6 +639,9 @@ const confirmSave = async (goToWallet = true) => {
       scanResult.value = null;
       localizedBoxStyle.value = null;
       ocrResult.value = null;
+      ocrPreviewImage.value = null;
+      showOcrImage.value = false;
+      showRawOcrText.value = false;
       startCamera();
     }
   } catch (err) {
@@ -635,6 +655,9 @@ const cancelSave = () => {
   scanResult.value = null;
   localizedBoxStyle.value = null;
   ocrResult.value = null;
+  ocrPreviewImage.value = null;
+  showOcrImage.value = false;
+  showRawOcrText.value = false;
   startCamera();
 };
 
@@ -645,6 +668,9 @@ const resetScan = () => {
   scanResult.value = null;
   localizedBoxStyle.value = null;
   ocrResult.value = null;
+  ocrPreviewImage.value = null;
+  showOcrImage.value = false;
+  showRawOcrText.value = false;
   startCamera();
 };
 
@@ -1169,6 +1195,12 @@ onUnmounted(() => {
   margin-top: 8px;
 }
 
+.ocr-toggle-buttons {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
 .btn-toggle-raw {
   background: transparent;
   border: none;
@@ -1176,6 +1208,28 @@ onUnmounted(() => {
   font-size: 0.7rem;
   cursor: pointer;
   padding: 2px 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.btn-toggle-raw:hover {
+  color: #38bdf8;
+}
+
+.ocr-image-preview-wrapper {
+  margin-top: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 8px;
+  padding: 6px;
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.ocr-filtered-img {
+  max-width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+  border-radius: 6px;
 }
 
 .raw-text-box {
