@@ -103,6 +103,19 @@ Budowa autonomicznej aplikacji działającej lokalnie w przeglądarce, z wykorzy
   - Reguła walidacji Lidl: wielokrotność 0,10 zł (min. 0,10 zł, z uwagi na butelki/puszki bez kaucji po 10 gr).
   - Dynamiczne przyciski szybkiego dodawania kwot (`btn-quick`) dostosowujące się do wybranego sklepu (+0.50, +1.00, +2.50, +5.00 dla Biedronki; +0.10, +0.50, +1.00, +5.00 dla Lidla).
   - Zastosowanie tych samych reguł walidacji w oknie edycji paragonu w portfelu (`WalletView.vue`).
+- [x] Podwójna weryfikacja per pole (Dual Verification) oraz ochrona autentyczności paragonów:
+  - Uściślenie wskaźnika "Pewność": wyjaśnienie średniej czytelności glifów Tesseract na całym obrazie oraz rozdzielenie na wskaźniki semantycznej podwójnej weryfikacji każdego pola osobno.
+  - Wdrożenie per-field podwójnej weryfikacji (Skaner + OCR):
+    - Sklep: plakietka `✓✓ Zweryfikowano z OCR` w formularzu i siatce OCR w przypadku zgodności kodu ze słownikiem OCR.
+    - Kwota: plakietka `✓✓ Zweryfikowano z OCR` przy 100% zgodności kwoty z kodu kreskowego i odczytanej z tekstu.
+    - Kod w tekście: `✓✓ Zgodny ze skanem` przy identycznym numerze kodu paskowego i tekstu OCR.
+  - Zabezpieczenie antyfraudowe dla sieci Lidl (brak daty w kodzie kreskowym):
+    - Dedykowany, skoncentrowany pass OCR na dolną strefę paragonu (ostatnie 40% wysokości z datą automatu Tomra 90 `HH:MM:SS DD-MMM-YYYY`).
+    - Rozszerzenie słowników skrótów miesięcy o wszystkie odmiany i zniekształcenia termiczne (`GRU`, `CRU`, `G8U`, `GKU`, `QAU`, `GR0`, `GRV`, `GRO`, itp.).
+    - Odznaczenie certyfikatu autentyczności `🛡️ Autentyczność potwierdzona (Lidl)` wraz z automatycznym wyznaczeniem terminu ważności (+30 dni od daty wydruku).
+  - Nowe bezpieczne wartości domyślne formularza:
+    - Sklep domyślnie ustawiany na `Inny`, o ile algorytm nie rozpozna konkretnej sieci (np. Biedronka, Lidl).
+    - Kwota kaucji domyślnie ustawiana na `0,00 zł`, blokująca przypadkowy zapis do momentu wyboru kwoty, wpisania lub rozczytania przez OCR.
 
 ---
 

@@ -179,7 +179,7 @@
                 <div class="success-icon">✓</div>
                 <h3>Kod Rozpoznany!</h3>
                 <p class="barcode-preview">#{{ scanResult }}</p>
-                <div v-if="isDualVerified" class="dual-verified-badge">
+                <div v-if="isBarcodeVerified" class="dual-verified-badge" title="Kod ze skanera i z odczytu OCR są identyczne">
                   ✓✓ Podwójna weryfikacja (Skaner + OCR 100% zgodne)
                 </div>
                 <div v-else-if="recoveredFromOcr" class="ocr-recovered-badge">
@@ -196,7 +196,9 @@
                 <div class="ocr-header">
                   <span>🧪 Wyniki Analizy OCR (Tesseract.js)</span>
                   <span v-if="isOcrRunning" class="ocr-pulse">Analizuję tekst...</span>
-                  <span v-else class="ocr-confidence">Pewność: {{ ocrResult?.confidence.toFixed(0) }}%</span>
+                  <span v-else class="ocr-confidence" title="Średnia czytelność znaków na całym dokumencie wyliczona przez silnik OCR Tesseract.js (0-100%)">
+                    Czytelność tekstu: {{ ocrResult?.confidence.toFixed(0) }}%
+                  </span>
                 </div>
 
                 <!-- Pasek postępu OCR -->
@@ -207,22 +209,35 @@
 
                 <!-- Podsumowanie danych wyciągniętych przez OCR -->
                 <div v-if="ocrResult && !isOcrRunning" class="ocr-extracted-grid">
-                  <div class="ocr-tag">
+                  <div class="ocr-tag" :class="{ 'tag-verified': isShopVerified }">
                     Sklep: <strong>{{ ocrResult.extracted.shop_name || 'Brak' }}</strong>
+                    <span v-if="isShopVerified" class="field-match-badge" title="Zgodność kodu kreskowego i tekstu OCR">✓✓ Zgodny z kodem</span>
+                    <span v-else-if="ocrResult.extracted.shop_name" class="field-ocr-badge">✓ Z tekstu OCR</span>
                   </div>
-                  <div class="ocr-tag">
+
+                  <div class="ocr-tag" :class="{ 'tag-verified': isAmountVerified }">
                     Kwota: <strong>{{ ocrResult.extracted.amount ? ocrResult.extracted.amount.toFixed(2) + ' zł' : 'Brak' }}</strong>
+                    <span v-if="isAmountVerified" class="field-match-badge" title="Kwota z kodu kreskowego zgadza się z OCR">✓✓ Zgodna z kodem</span>
+                    <span v-else-if="ocrResult.extracted.amount" class="field-ocr-badge">✓ Z tekstu OCR</span>
                   </div>
-                  <div v-if="ocrResult.extracted.print_date" class="ocr-tag">
+
+                  <div v-if="ocrResult.extracted.print_date" class="ocr-tag" :class="{ 'tag-verified': isLidlDateVerified || isDateVerified }">
                     Wydruk: <strong>{{ ocrResult.extracted.print_date }}</strong>
+                    <span v-if="isLidlDateVerified" class="field-security-badge" title="Lidl nie zapisuje daty w kodzie kreskowym. Odczytanie daty na dole paragonu potwierdza jego autentyczność!">🛡️ Autentyczność (Lidl)</span>
+                    <span v-else-if="isDateVerified" class="field-match-badge">✓✓ Zgodna z kodem</span>
                   </div>
-                  <div class="ocr-tag">
+
+                  <div class="ocr-tag" :class="{ 'tag-verified': isLidlDateVerified || isDateVerified }">
                     Ważność: <strong>{{ ocrResult.extracted.expiration_date || 'Brak' }}</strong>
+                    <span v-if="isLidlDateVerified" class="field-security-badge">🛡️ +30 dni</span>
+                    <span v-else-if="isDateVerified" class="field-match-badge">✓✓ Zgodna</span>
                   </div>
-                  <div v-if="ocrResult.extracted.barcode" class="ocr-tag">
+
+                  <div v-if="ocrResult.extracted.barcode" class="ocr-tag" :class="{ 'tag-verified': isBarcodeVerified }">
                     Kod w tekście: <strong>#{{ ocrResult.extracted.barcode }}</strong>
-                    <span v-if="isDualVerified" class="text-match">✓ Zgodny</span>
+                    <span v-if="isBarcodeVerified" class="field-match-badge">✓✓ Zgodny ze skanem</span>
                   </div>
+
                   <button 
                     v-if="ocrResult.extracted.shop_name || ocrResult.extracted.amount || ocrResult.extracted.expiration_date" 
                     type="button" 
@@ -254,7 +269,11 @@
               <div class="form-body">
                 <!-- Wybór sklepu -->
                 <div class="form-group">
-                  <label>Sieć handlowa / Sklep:</label>
+                  <div class="label-with-badge">
+                    <label>Sieć handlowa / Sklep:</label>
+                    <span v-if="isShopVerified" class="label-verified-pill" title="Zgodność kodu kreskowego i tekstu OCR">✓✓ Zweryfikowano z OCR</span>
+                    <span v-else-if="ocrResult?.extracted?.shop_name && receiptForm.shop_name === ocrResult.extracted.shop_name" class="label-ocr-pill">✓ Z tekstu OCR</span>
+                  </div>
                   <div class="shop-chips">
                     <button 
                       v-for="shop in popularShops" 
@@ -272,7 +291,11 @@
                 <!-- Kwota kaucji -->
                 <div class="form-group">
                   <div class="label-with-rule">
-                    <label>Wartość kaucji (zł):</label>
+                    <div class="label-with-badge">
+                      <label>Wartość kaucji (zł):</label>
+                      <span v-if="isAmountVerified" class="label-verified-pill" title="Kwota zgodna z kodem kreskowym i tekstem OCR">✓✓ Zweryfikowano z OCR</span>
+                      <span v-else-if="ocrResult?.extracted?.amount && receiptForm.amount === ocrResult.extracted.amount" class="label-ocr-pill">✓ Z tekstu OCR</span>
+                    </div>
                     <span v-if="receiptForm.shop_name === 'Biedronka'" class="rule-hint">Wielokrotność 0,50 zł</span>
                     <span v-else-if="receiptForm.shop_name === 'Lidl'" class="rule-hint">Wielokrotność 0,10 zł (min. 0,10 zł)</span>
                   </div>
@@ -284,7 +307,7 @@
                       @input="onAmountInput" 
                       @blur="formatAmountInput" 
                       class="amount-input" 
-                      placeholder="0,50" 
+                      placeholder="0,00" 
                     />
                     <span class="currency">PLN</span>
                   </div>
@@ -316,12 +339,22 @@
 
                 <!-- Data ważności -->
                 <div class="form-group">
-                  <label>Data ważności:</label>
+                  <div class="label-with-badge">
+                    <label>Data ważności:</label>
+                    <span v-if="isLidlDateVerified" class="label-security-pill" title="Autentyczność potwierdzona na podstawie daty wydruku na dole paragonu">🛡️ Potwierdzono z OCR (Lidl)</span>
+                    <span v-else-if="isDateVerified" class="label-verified-pill" title="Data zgodna ze znacznikiem czasu z kodu kreskowego i tekstu OCR">✓✓ Zweryfikowano z OCR</span>
+                  </div>
                   <input 
                     type="date" 
                     v-model="receiptForm.expiration_date" 
                     class="date-input" 
                   />
+                  <p v-if="receiptForm.shop_name === 'Lidl' && isLidlDateVerified" class="lidl-auth-info">
+                    🛡️ Odnaleziono datę wydruku na dole paragonu ({{ ocrResult.extracted.print_date }}). Ważność: 30 dni.
+                  </p>
+                  <p v-else-if="receiptForm.shop_name === 'Lidl' && !isLidlDateVerified && !isOcrRunning" class="lidl-auth-warn">
+                    ⚠️ Lidl nie podaje daty w kodzie kreskowym. Upewnij się, że data na dole paragonu nie przekroczyła 30 dni.
+                  </p>
                 </div>
               </div>
 
@@ -374,7 +407,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { BarcodeScannerService } from '../services/BarcodeScannerService';
 import { BarcodeParserService } from '../services/BarcodeParserService';
@@ -395,9 +428,45 @@ const engineName = ref('Ładowanie silnika...');
 const localizedBoxStyle = ref(null);
 const showSaveDialog = ref(false);
 const isAutoParsed = ref(false);
-const isDualVerified = ref(false);
 const recoveredFromOcr = ref(false);
 const isChecksumValid = ref(null);
+const lastParsedBarcode = ref(null);
+
+// Podwójna weryfikacja kodu kreskowego (Skaner vs OCR)
+const isBarcodeVerified = computed(() => {
+  if (!ocrResult.value?.extracted?.barcode || !scanResult.value) return false;
+  const cleanOcr = BarcodeParserService.cleanBarcode(ocrResult.value.extracted.barcode);
+  return scanResult.value === cleanOcr;
+});
+
+// Podwójna weryfikacja sklepu (Kod vs OCR)
+const isShopVerified = computed(() => {
+  if (!ocrResult.value?.extracted?.shop_name || !lastParsedBarcode.value?.shop_name) return false;
+  if (lastParsedBarcode.value.shop_name === 'Inny') return false;
+  return lastParsedBarcode.value.shop_name.toLowerCase() === ocrResult.value.extracted.shop_name.toLowerCase();
+});
+
+// Podwójna weryfikacja kwoty (Kod vs OCR)
+const isAmountVerified = computed(() => {
+  if (!ocrResult.value?.extracted?.amount || !lastParsedBarcode.value?.amount) return false;
+  if (lastParsedBarcode.value.amount <= 0) return false;
+  return Math.abs(lastParsedBarcode.value.amount - ocrResult.value.extracted.amount) < 0.01;
+});
+
+// Podwójna weryfikacja daty (Biedronka: timestamp w kodzie vs wydruk w OCR)
+const isDateVerified = computed(() => {
+  if (!ocrResult.value?.extracted?.print_date || !lastParsedBarcode.value?.has_date) return false;
+  if (lastParsedBarcode.value.expiration_date && ocrResult.value.extracted.expiration_date) {
+    return lastParsedBarcode.value.expiration_date === ocrResult.value.extracted.expiration_date;
+  }
+  return false;
+});
+
+// Autentyczność paragonu Lidl (data wydruku na dole paragonu znaleziona przez OCR)
+const isLidlDateVerified = computed(() => {
+  const isLidl = receiptForm.shop_name === 'Lidl' || lastParsedBarcode.value?.shop_name === 'Lidl';
+  return isLidl && !!ocrResult.value?.extracted?.print_date;
+});
 
 // Duplikaty
 const showDuplicateModal = ref(false);
@@ -418,12 +487,12 @@ const popularShops = ['Biedronka', 'Lidl', 'Dino', 'Kaufland', 'Carrefour', 'Ża
 const parsedBarcodeHasDate = ref(false);
 
 const receiptForm = reactive({
-  shop_name: 'Biedronka',
-  amount: 2.00,
+  shop_name: 'Inny',
+  amount: 0,
   expiration_date: ReceiptService.getDefaultExpirationDate()
 });
 
-const amountInputText = ref('2,00');
+const amountInputText = ref('0,00');
 const amountError = ref('');
 
 // Kontrolki aparatu (latarka, zoom)
@@ -624,9 +693,19 @@ const onBarcodeDetected = async (rawCode, sourceFile = null) => {
 
   // --- KROK 2: Nowy kod - inżynieria wsteczna danych z kodu ---
   const parsed = BarcodeParserService.parseBarcode(code);
-  receiptForm.shop_name = parsed.shop_name || 'Biedronka';
-  const defaultAmount = receiptForm.shop_name === 'Lidl' ? 1.00 : 0.50;
-  receiptForm.amount = (parsed.amount !== undefined && parsed.amount !== null) ? parsed.amount : defaultAmount;
+  lastParsedBarcode.value = parsed;
+
+  if (parsed.detected && parsed.shop_name && parsed.shop_name !== 'Inny') {
+    receiptForm.shop_name = parsed.shop_name;
+  } else {
+    receiptForm.shop_name = 'Inny';
+  }
+
+  if (parsed.detected && parsed.amount && parsed.amount > 0) {
+    receiptForm.amount = parsed.amount;
+  } else {
+    receiptForm.amount = 0;
+  }
   amountInputText.value = formatAmountDisplay(receiptForm.amount);
   receiptForm.expiration_date = parsed.expiration_date || ReceiptService.getDefaultExpirationDate();
   parsedBarcodeHasDate.value = !!parsed.has_date;
@@ -685,13 +764,20 @@ const runOcrTest = async (imageFile) => {
     }
     console.log('[ScannerView] OCR Result:', result);
 
-    // Podwójna weryfikacja: porównanie kodu ze skanera z kodem z OCR
-    const ocrBarcode = result?.extracted?.barcode;
-    if (ocrBarcode && scanResult.value) {
-      const cleanOcr = BarcodeParserService.cleanBarcode(ocrBarcode);
-      if (scanResult.value === cleanOcr) {
-        isDualVerified.value = true;
-        console.log('[Dual Verification] 100% zgodności między kodem paskowym a OCR:', cleanOcr);
+    // Auto-uzupełnienie pól z OCR jeśli nie były jeszcze wykryte
+    if (result?.extracted) {
+      if (receiptForm.shop_name === 'Inny' && result.extracted.shop_name) {
+        receiptForm.shop_name = result.extracted.shop_name;
+      }
+      if (receiptForm.amount === 0 && result.extracted.amount && result.extracted.amount > 0) {
+        receiptForm.amount = result.extracted.amount;
+        amountInputText.value = formatAmountDisplay(receiptForm.amount);
+        validateAmount();
+      }
+      if (receiptForm.shop_name === 'Lidl' && result.extracted.expiration_date) {
+        receiptForm.expiration_date = result.extracted.expiration_date;
+      } else if (result.extracted.expiration_date && !parsedBarcodeHasDate.value) {
+        receiptForm.expiration_date = result.extracted.expiration_date;
       }
     }
 
@@ -727,11 +813,6 @@ const runOcrTest = async (imageFile) => {
           errorMsg.value = '';
         }
       }, 7000);
-    } else {
-      // Tryb standardowy (okno zapisu jest już otwarte)
-      if (result?.extracted?.expiration_date && !parsedBarcodeHasDate.value) {
-        receiptForm.expiration_date = result.extracted.expiration_date;
-      }
     }
   } catch (err) {
     console.warn('[ScannerView] OCR error:', err);
@@ -750,14 +831,14 @@ const runOcrTest = async (imageFile) => {
 };
 
 const formatAmountDisplay = (val) => {
-  if (val === null || val === undefined || isNaN(val)) return '0,50';
+  if (val === null || val === undefined || isNaN(val) || val <= 0) return '0,00';
   return Number(val).toFixed(2).replace('.', ',');
 };
 
 const validateAmount = () => {
   const amt = receiptForm.amount;
   if (amt === null || amt === undefined || isNaN(amt) || amt <= 0) {
-    amountError.value = 'Podaj poprawną wartość kaucji (powyżej 0 zł).';
+    amountError.value = 'Wprowadź kwotę kaucji (np. wybierz z szybkich kwot poniżej lub poczekaj na OCR).';
     return false;
   }
   const grosze = Math.round(amt * 100);
@@ -811,9 +892,8 @@ const formatAmountInput = () => {
   if (receiptForm.amount && !isNaN(receiptForm.amount) && receiptForm.amount > 0) {
     amountInputText.value = formatAmountDisplay(receiptForm.amount);
   } else {
-    const defaultVal = receiptForm.shop_name === 'Lidl' ? 0.10 : 0.50;
-    receiptForm.amount = defaultVal;
-    amountInputText.value = formatAmountDisplay(defaultVal);
+    receiptForm.amount = 0;
+    amountInputText.value = '0,00';
   }
   validateAmount();
 };
@@ -827,7 +907,7 @@ const applyOcrValues = () => {
   if (!ocrResult.value?.extracted) return;
   const ext = ocrResult.value.extracted;
   if (ext.shop_name) receiptForm.shop_name = ext.shop_name;
-  if (ext.amount) {
+  if (ext.amount && ext.amount > 0) {
     receiptForm.amount = ext.amount;
     amountInputText.value = formatAmountDisplay(ext.amount);
   }
@@ -862,6 +942,7 @@ const confirmSave = async (goToWallet = true) => {
       // Skanuj kolejny
       showSaveDialog.value = false;
       scanResult.value = null;
+      lastParsedBarcode.value = null;
       localizedBoxStyle.value = null;
       ocrResult.value = null;
       ocrPreviewImage.value = null;
@@ -880,12 +961,12 @@ const confirmSave = async (goToWallet = true) => {
 const cancelSave = () => {
   showSaveDialog.value = false;
   scanResult.value = null;
+  lastParsedBarcode.value = null;
   localizedBoxStyle.value = null;
   ocrResult.value = null;
   ocrPreviewImage.value = null;
   showOcrImage.value = false;
   showRawOcrText.value = false;
-  isDualVerified.value = false;
   recoveredFromOcr.value = false;
   isChecksumValid.value = null;
   amountError.value = '';
@@ -897,12 +978,12 @@ const resetScan = () => {
   showArchivedDuplicateModal.value = false;
   duplicateReceipt.value = null;
   scanResult.value = null;
+  lastParsedBarcode.value = null;
   localizedBoxStyle.value = null;
   ocrResult.value = null;
   ocrPreviewImage.value = null;
   showOcrImage.value = false;
   showRawOcrText.value = false;
-  isDualVerified.value = false;
   recoveredFromOcr.value = false;
   startCamera();
 };
@@ -1471,6 +1552,97 @@ onUnmounted(() => {
   border-radius: 6px;
   font-size: 0.75rem;
   color: #e2e8f0;
+}
+
+.tag-verified {
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  background: rgba(16, 185, 129, 0.15) !important;
+}
+
+.field-match-badge {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.25);
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+
+.field-ocr-badge {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.2);
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+
+.field-security-badge {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.25);
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+
+.label-with-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.label-verified-pill {
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: rgba(16, 185, 129, 0.22);
+  border: 1px solid rgba(16, 185, 129, 0.55);
+  color: #34d399;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.label-ocr-pill {
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: rgba(56, 189, 248, 0.2);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  color: #38bdf8;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.label-security-pill {
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: rgba(245, 158, 11, 0.25);
+  border: 1px solid rgba(245, 158, 11, 0.6);
+  color: #fbbf24;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.lidl-auth-info {
+  font-size: 0.76rem;
+  color: #fbbf24;
+  margin: 2px 0 0;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.lidl-auth-warn {
+  font-size: 0.76rem;
+  color: #fca5a5;
+  margin: 2px 0 0;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 .btn-apply-ocr {

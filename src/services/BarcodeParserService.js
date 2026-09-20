@@ -147,8 +147,8 @@ export const BarcodeParserService = {
 
     // Domyślne wartości dla nierozpoznanych kodów
     return {
-      shop_name: 'Biedronka',
-      amount: 2.00,
+      shop_name: 'Inny',
+      amount: 0,
       expiration_date: this.getDefaultExpirationDate(),
       has_date: false,
       detected: false

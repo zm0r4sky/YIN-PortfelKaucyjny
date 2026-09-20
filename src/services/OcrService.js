@@ -233,10 +233,35 @@ class OcrServiceClass {
     const processedCanvas = await this.preprocessImageForOcr(imageSource);
 
     const ret = await worker.recognize(processedCanvas);
-    const text = ret.data.text || '';
+    let text = ret.data.text || '';
     const confidence = ret.data.confidence || 0;
+    let dateInfo = this.extractDates(text);
 
-    const dateInfo = this.extractDates(text);
+    // SPECJALNY PASS DLA LIDLA: Jeśli data nie została znaleziona na całym paragonie,
+    // wykonujemy dedykowane skanowanie dolnej strefy paragonu (ostatnie 40% wysokości),
+    // gdzie automaty Tomra 90 drukują datę i godzinę (np. 18:33:58 12-GRU-2025).
+    if (!dateInfo.print_date && !dateInfo.expiration_date && processedCanvas.height > 500) {
+      try {
+        const bottomCanvas = document.createElement('canvas');
+        const cropY = Math.round(processedCanvas.height * 0.60);
+        const cropH = processedCanvas.height - cropY;
+        bottomCanvas.width = processedCanvas.width;
+        bottomCanvas.height = cropH;
+        const bCtx = bottomCanvas.getContext('2d');
+        bCtx.drawImage(processedCanvas, 0, cropY, processedCanvas.width, cropH, 0, 0, bottomCanvas.width, cropH);
+
+        const bottomRet = await worker.recognize(bottomCanvas);
+        const bottomText = bottomRet.data.text || '';
+        const bottomDateInfo = this.extractDates(bottomText);
+        if (bottomDateInfo.print_date || bottomDateInfo.expiration_date) {
+          dateInfo = bottomDateInfo;
+          text += '\n' + bottomText;
+          console.log('[OcrService] Sukces: data odnaleziona w strefie dolnej paragonu (Lidl):', dateInfo);
+        }
+      } catch (err) {
+        console.warn('[OcrService] Błąd skanowania dolnej strefy daty:', err);
+      }
+    }
 
     const extracted = {
       shop_name: this.extractShop(text),
@@ -444,15 +469,19 @@ class OcrServiceClass {
       'KWIECIEN': 3, 'KWIETNIA': 3, 'MAJA': 4, 'CZERWIEC': 5, 'CZERWCA': 5,
       'LIPIEC': 6, 'LIPCA': 6, 'SIERPIEN': 7, 'SIERPNIA': 7, 'WRZESIEN': 8, 'WRZESNIA': 8,
       'PAZDZIERNIK': 9, 'PAZDZIERNIKA': 9, 'LISTOPAD': 10, 'LISTOPADA': 10, 'GRUDZIEN': 11, 'GRUDNIA': 11,
-      // Typowe błędy i zniekształcenia OCR z czcionek termicznych
-      'URZ': 8, 'VRZ': 8, 'W4Z': 8, 'WRI': 8, // WRZ
-      'LU1': 1, 'LU7': 1, 'LUI': 1, 'LVT': 1, // LUT
-      'KW1': 3, 'KVI': 3, 'KHL': 3, // KWI
-      'CRU': 11, 'G8U': 11, 'GKU': 11, 'QAU': 11, // GRU
-      'S1E': 7, 'SIF': 7, 'S1F': 7, // SIE
-      'L1S': 10, 'LI5': 10, 'L15': 10, // LIS
-      'L1P': 6, 'LIR': 6, // LIP
-      'ST1': 0, 'S1Y': 0, 'ST7': 0, // STY
+      // Typowe błędy i zniekształcenia OCR z czcionek termicznych (Lidl / Tomra)
+      'URZ': 8, 'VRZ': 8, 'W4Z': 8, 'WRI': 8, 'WPZ': 8, 'WBZ': 8, 'WR7': 8, 'WZZ': 8, 'WRZ.': 8, // WRZ
+      'LU1': 1, 'LU7': 1, 'LUI': 1, 'LVT': 1, 'L0T': 1, 'LUT.': 1, // LUT
+      'KW1': 3, 'KVI': 3, 'KHL': 3, 'KV1': 3, 'KWI.': 3, // KWI
+      'CRU': 11, 'G8U': 11, 'GKU': 11, 'QAU': 11, 'GR0': 11, 'GRV': 11, 'GRO': 11, 'GRJ': 11, 'GRU.': 11, // GRU
+      'S1E': 7, 'SIF': 7, 'S1F': 7, '5IE': 7, 'SIE.': 7, // SIE
+      'L1S': 10, 'LI5': 10, 'L15': 10, 'LTS': 10, 'LIS.': 10, // LIS
+      'L1P': 6, 'LIR': 6, 'L1R': 6, 'LIP.': 6, // LIP
+      'ST1': 0, 'S1Y': 0, 'ST7': 0, '5TY': 0, 'STY.': 0, // STY
+      'M4R': 2, 'NAR': 2, 'MAR.': 2, // MAR
+      'M4J': 4, 'NAJ': 4, 'MAJ.': 4, // MAJ
+      'C2E': 5, 'C7E': 5, 'CZE.': 5, // CZE
+      'P4Z': 9, 'PA2': 9, 'PAZ.': 9, // PAZ
       // Angielskie
       'JAN': 0, 'FEB': 1, 'APR': 3, 'MAY': 4, 'JUN': 5,
       'JUL': 6, 'AUG': 7, 'SEP': 8, 'OCT': 9, 'NOV': 10, 'DEC': 11
@@ -486,13 +515,13 @@ class OcrServiceClass {
 
     // 3. Format ze słownym skrótem miesiąca (np. Tomra / Lidl: "18:33:58 12-GRU-2025" lub "12-GRU-?")
     if (!printDateStr || !expDateStr) {
-      const textMonthRegex = /(\d{1,2})[\.\-\/\s]([A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż0-9]{3,12})[\.\-\/\s](\d{4}|\d{2}|\?+)/gi;
+      const textMonthRegex = /(?:(\d{1,2})[:\.](\d{2})[:\.](\d{2})\s+)?(\d{1,2})\s*[\.\-\/\s]\s*([A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż0-9]{3,12})\s*[\.\-\/\s]\s*(\d{4}|\d{2}|\?+)/gi;
       const textMatches = [...text.matchAll(textMonthRegex)];
       for (const match of textMatches) {
-        const day = parseInt(match[1], 10);
+        const day = parseInt(match[4], 10);
         if (day < 1 || day > 31) continue;
 
-        const rawMonth = match[2].toUpperCase()
+        const rawMonth = match[5].toUpperCase()
           .replace(/Ą/g, 'A').replace(/Ć/g, 'C').replace(/Ę/g, 'E')
           .replace(/Ł/g, 'L').replace(/Ń/g, 'N').replace(/Ó/g, 'O')
           .replace(/Ś/g, 'S').replace(/Ź/g, 'Z').replace(/Ż/g, 'Z');
@@ -500,10 +529,10 @@ class OcrServiceClass {
         const month = MONTH_MAP[rawMonth] !== undefined ? MONTH_MAP[rawMonth] : MONTH_MAP[rawMonth.slice(0, 3)];
         if (month !== undefined) {
           let year;
-          if (match[3] && /^\d{4}$/.test(match[3])) {
-            year = parseInt(match[3], 10);
-          } else if (match[3] && /^\d{2}$/.test(match[3])) {
-            year = 2000 + parseInt(match[3], 10);
+          if (match[6] && /^\d{4}$/.test(match[6])) {
+            year = parseInt(match[6], 10);
+          } else if (match[6] && /^\d{2}$/.test(match[6])) {
+            year = 2000 + parseInt(match[6], 10);
           } else {
             const currentYear = new Date().getFullYear();
             year = currentYear;
