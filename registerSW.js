@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/YIN-PortfelKaucyjny/sw.js', { scope: '/YIN-PortfelKaucyjny/' })})}
