@@ -164,13 +164,20 @@
     {
       "id": "SAMPLE-LIDL-003",
       "barcode": "2001941100013000035",
-      "barcode_format": "Code 128",
+      "barcode_raw_gs1": "(20)01(94)1100013000035",
+      "barcode_format": "Code 128 (GS1-128 AI)",
       "barcode_length": 19,
       "retailer": "Lidl",
       "amount_pln": 0.35,
       "store_id": "1941",
+      "store_name": "Lidl, ul. Braniborska 82, Wrocław",
       "ticket_id": "100013",
-      "verification_status": "VERIFIED_LEGACY_PILOT"
+      "print_datetime": "2025-02-05T13:04:32",
+      "expiration_date": "2025-03-07",
+      "machine": "Tomra 90",
+      "items": "7x Butelka plastikowa (0.35 zł)",
+      "verification_status": "VERIFIED_100_PERCENT",
+      "notes": "Paragon z automatu Tomra 90 w sklepie Lidl Wrocław Braniborska 82. Kod kreskowy zawiera nawiasy GS1 Application Identifiers ((20)01(94)...), które parser automatycznie usuwa."
     },
     {
       "id": "SAMPLE-LIDL-004",
