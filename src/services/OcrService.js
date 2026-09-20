@@ -47,36 +47,157 @@ class OcrServiceClass {
   /**
    * Preprocesses image on canvas for thermal receipt readability (grayscale + contrast)
    */
+  /**
+   * Preprocesses image on canvas for thermal receipt readability:
+   * 1. Detects receipt paper bounding box (white vertical strip) to eliminate dark room & hand background.
+   * 2. Crops directly to the receipt and scales up so text characters reach optimal OCR size (25-35px).
+   * 3. Normalizes paper to bright white and ink to deep black.
+   * 4. Inverts dark horizontal reverse bands (such as white 'PLN 0.35' on black background).
+   */
   async preprocessImageForOcr(imageSource) {
     const img = await this.loadImage(imageSource);
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-
-    // Scale to standard readable width (e.g. 1400px)
     const naturalW = img.naturalWidth || img.width || 1200;
     const naturalH = img.naturalHeight || img.height || 1600;
-    const scale = Math.min(2, 1400 / naturalW);
-    canvas.width = Math.round(naturalW * scale);
-    canvas.height = Math.round(naturalH * scale);
 
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    // KROK 1: Szybki canvas pomocniczy do detekcji granic papieru paragonu
+    const sampleW = 400;
+    const sampleH = Math.round((naturalH / naturalW) * sampleW);
+    const sampleCanvas = document.createElement('canvas');
+    sampleCanvas.width = sampleW;
+    sampleCanvas.height = sampleH;
+    const sCtx = sampleCanvas.getContext('2d', { willReadFrequently: true });
+    sCtx.drawImage(img, 0, 0, sampleW, sampleH);
 
-    // Apply high contrast filter tailored for thermal paper
+    let cropRect = { x: 0, y: 0, w: naturalW, h: naturalH };
+
+    try {
+      const sData = sCtx.getImageData(0, 0, sampleW, sampleH).data;
+      
+      // Profil jasności pionowej i poziomej (szukanie jasnego paska papieru termicznego)
+      const colBright = new Float32Array(sampleW);
+      const rowBright = new Float32Array(sampleH);
+
+      for (let y = 0; y < sampleH; y++) {
+        for (let x = 0; x < sampleW; x++) {
+          const idx = (y * sampleW + x) * 4;
+          const lum = (sData[idx] * 77 + sData[idx + 1] * 150 + sData[idx + 2] * 29) >> 8;
+          if (lum > 140) {
+            colBright[x]++;
+            rowBright[y]++;
+          }
+        }
+      }
+
+      const thresholdY = sampleH * 0.15;
+      const thresholdX = sampleW * 0.15;
+
+      let minX = 0, maxX = sampleW - 1;
+      let minY = 0, maxY = sampleH - 1;
+
+      for (let x = 0; x < sampleW; x++) {
+        if (colBright[x] > thresholdY) { minX = x; break; }
+      }
+      for (let x = sampleW - 1; x >= 0; x--) {
+        if (colBright[x] > thresholdY) { maxX = x; break; }
+      }
+
+      for (let y = 0; y < sampleH; y++) {
+        if (rowBright[y] > thresholdX) { minY = y; break; }
+      }
+      for (let y = sampleH - 1; y >= 0; y--) {
+        if (rowBright[y] > thresholdX) { maxY = y; break; }
+      }
+
+      const detectedW = (maxX - minX) / sampleW;
+      const detectedH = (maxY - minY) / sampleH;
+
+      if (detectedW > 0.25 && detectedW < 0.95 && detectedH > 0.3) {
+        const marginX = Math.round(sampleW * 0.04);
+        const marginY = Math.round(sampleH * 0.04);
+        const clX = Math.max(0, minX - marginX) / sampleW;
+        const crX = Math.min(sampleW, maxX + marginX) / sampleW;
+        const ctY = Math.max(0, minY - marginY) / sampleH;
+        const cbY = Math.min(sampleH, maxY + marginY) / sampleH;
+
+        cropRect = {
+          x: Math.round(clX * naturalW),
+          y: Math.round(ctY * naturalH),
+          w: Math.round((crX - clX) * naturalW),
+          h: Math.round((cbY - ctY) * naturalH)
+        };
+      }
+    } catch (err) {
+      console.warn('[OcrService] Receipt ROI detection fallback to full frame', err);
+    }
+
+    // KROK 2: Renderowanie wykadrowanego paragonu w docelowej rozdzielczości (~1400px szerokości)
+    const targetW = 1400;
+    const renderScale = targetW / cropRect.w;
+    const canvas = document.createElement('canvas');
+    canvas.width = targetW;
+    canvas.height = Math.round(cropRect.h * renderScale);
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, cropRect.x, cropRect.y, cropRect.w, cropRect.h, 0, 0, canvas.width, canvas.height);
+
+    // KROK 3: Normalizacja kontrastu i odwrócenie czarnych pasków
     try {
       const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imgData.data;
+      const w = canvas.width;
+      const h = canvas.height;
 
-      for (let i = 0; i < data.length; i += 4) {
-        // Luminance
-        const gray = (data[i] * 77 + data[i + 1] * 150 + data[i + 2] * 29) >> 8;
-        // High contrast curve
-        const enhanced = gray > 140 ? 255 : (gray < 80 ? 0 : Math.round((gray - 80) * (255 / 60)));
-        data[i] = enhanced;
-        data[i + 1] = enhanced;
-        data[i + 2] = enhanced;
+      let sumLum = 0;
+      let count = 0;
+      for (let i = 0; i < data.length; i += 16) {
+        const lum = (data[i] * 77 + data[i + 1] * 150 + data[i + 2] * 29) >> 8;
+        sumLum += lum;
+        count++;
       }
+      const avgLum = sumLum / count;
+      const whiteThreshold = Math.max(130, Math.min(200, avgLum + 20));
+      const darkThreshold = Math.max(60, Math.min(110, avgLum - 40));
+      const range = Math.max(20, whiteThreshold - darkThreshold);
+
+      for (let y = 0; y < h; y++) {
+        let rowSum = 0;
+        const rowStart = y * w * 4;
+        for (let x = 0; x < w; x += 8) {
+          const idx = rowStart + x * 4;
+          rowSum += (data[idx] * 77 + data[idx + 1] * 150 + data[idx + 2] * 29) >> 8;
+        }
+        const rowAvg = rowSum / (w / 8);
+        const isReverseBanner = rowAvg < 65;
+
+        for (let x = 0; x < w; x++) {
+          const i = rowStart + x * 4;
+          let gray = (data[i] * 77 + data[i + 1] * 150 + data[i + 2] * 29) >> 8;
+
+          if (isReverseBanner) {
+            gray = 255 - gray;
+          }
+
+          let enhanced;
+          if (gray >= whiteThreshold) {
+            enhanced = 255;
+          } else if (gray <= darkThreshold) {
+            enhanced = 0;
+          } else {
+            enhanced = Math.round(((gray - darkThreshold) * 255) / range);
+          }
+
+          data[i] = enhanced;
+          data[i + 1] = enhanced;
+          data[i + 2] = enhanced;
+        }
+      }
+
       ctx.putImageData(imgData, 0, 0);
-    } catch (e) {}
+    } catch (e) {
+      console.warn('[OcrService] Contrast processing error:', e);
+    }
 
     return canvas;
   }
@@ -116,16 +237,38 @@ class OcrServiceClass {
   /**
    * Detects shop name from keywords and NIP
    */
+  /**
+   * Normalizuje częste artefakty OCR z czcionek termicznych i igłowych
+   */
+  normalizeOcrText(text) {
+    if (!text) return '';
+    return text
+      // Zamiana O/o/D/Q przed kropką/przecinkiem na 0 (np. O.35 -> 0.35, O. 33 -> 0.33)
+      .replace(/\b[OoQqDd][,\.]\s*(\d{1,2})\b/g, '0.$1')
+      // Zamiana literówki PLA na PLN
+      .replace(/\bPLA\b/g, 'PLN')
+      // Likwidacja spacji wewnątrz kwoty (np. 0. 35 -> 0.35)
+      .replace(/(\d+)[,\.]\s+(\d{2})\b/g, '$1.$2');
+  }
+
+  /**
+   * Detects shop name from keywords, addresses, and NIP
+   */
   extractShop(text) {
     if (!text) return null;
     const lower = text.toLowerCase();
 
-    // NIP lub nazwy spółek
+    // NIP lub nazwy spółek i lokalizacje
     if (
       lower.includes('7811897358') || 
       lower.includes('jankowice') || 
       lower.includes('tarnowo podgórne') || 
       lower.includes('tarnowo podgorne') || 
+      lower.includes('braniborska') ||
+      lower.includes('poznańska') ||
+      lower.includes('poznanska') ||
+      lower.includes('wrocław') ||
+      lower.includes('wroclaw') ||
       lower.includes('lidl')
     ) {
       return 'Lidl';
@@ -168,26 +311,36 @@ class OcrServiceClass {
    */
   extractAmount(text) {
     if (!text) return null;
+    const norm = this.normalizeOcrText(text);
 
     // Pattern 1: Słowo kluczowe + kwota (np. SUMA, SUMA RABATU, RAZEM, KAUCJA, ZWROT)
-    const keywordRegex = /(?:suma\s*rabatu|suma|razem|kaucja|zwrot|wyp[łl]at[ay]|warto[sś][cć]|kwota|do\s*zap[łl]aty)\s*[:=]?\s*(\d{1,3}[,\.]\d{2})/i;
-    const match1 = text.match(keywordRegex);
+    const keywordRegex = /(?:suma\s*rabatu|suma|razem|kaucja|zwrot|wyp[łl]at[ay]|warto[sś][cć]|kwota|do\s*zap[łl]aty)\s*[:=]?\s*[\r\n\s]*(\d{1,3}[,\.]\d{2})/i;
+    const match1 = norm.match(keywordRegex);
     if (match1 && match1[1]) {
       const val = parseFloat(match1[1].replace(',', '.'));
       if (!isNaN(val) && val > 0) return val;
     }
 
-    // Pattern 2: Kwota + PLN / ZŁ
-    const currRegex = /(\d{1,3}[,\.]\d{2})\s*(?:z[łl]|pln)/i;
-    const match2 = text.match(currRegex);
-    if (match2 && match2[1]) {
-      const val = parseFloat(match2[1].replace(',', '.'));
+    // Pattern 2: Pozycja ze sztukami (np. "7x Butelka plastikowa 0.35")
+    const itemRegex = /\d+\s*[xX]\s+[^\d\n]+[\s\t]+(\d{1,2}[,\.]\d{2})/i;
+    const matchItem = norm.match(itemRegex);
+    if (matchItem && matchItem[1]) {
+      const val = parseFloat(matchItem[1].replace(',', '.'));
       if (!isNaN(val) && val > 0) return val;
     }
 
-    // Pattern 3: Wyszukaj wszystkie kwoty w tekście
+    // Pattern 3: Kwota + PLN / ZŁ lub PLN + Kwota
+    const currRegex = /(?:pln|z[łl])\s*[:=]?\s*(\d{1,3}[,\.]\d{2})|(\d{1,3}[,\.]\d{2})\s*(?:z[łl]|pln)/i;
+    const match2 = norm.match(currRegex);
+    if (match2) {
+      const numStr = match2[1] || match2[2];
+      const val = parseFloat(numStr.replace(',', '.'));
+      if (!isNaN(val) && val > 0) return val;
+    }
+
+    // Pattern 4: Wyszukaj wszystkie kwoty w tekście i weź ostatnią lub najbardziej sensowną
     const allAmountsRegex = /\b(\d{1,2}[,\.]\d{2})\b/g;
-    const matches = [...text.matchAll(allAmountsRegex)];
+    const matches = [...norm.matchAll(allAmountsRegex)];
     if (matches.length > 0) {
       const lastMatch = matches[matches.length - 1];
       const val = parseFloat(lastMatch[1].replace(',', '.'));
@@ -202,17 +355,18 @@ class OcrServiceClass {
    */
   extractBarcode(text) {
     if (!text) return null;
+    const clean = text.replace(/[()\s\-_]/g, '');
     // Biedronka (28 cyfr z prefiksem 9841)
-    const b1 = text.match(/\b(9841\d{24})\b/);
+    const b1 = clean.match(/\b(9841\d{24})\b/);
     if (b1) return b1[1];
     // Lidl 24 cyfry (z prefiksem 2010)
-    const b2 = text.match(/\b(2010\d{20})\b/);
+    const b2 = clean.match(/\b(2010\d{20})\b/);
     if (b2) return b2[1];
     // Lidl / pilotaż 19 cyfr (z prefiksem 200)
-    const b3 = text.match(/\b(200\d{16})\b/);
+    const b3 = clean.match(/\b(200\d{16})\b/);
     if (b3) return b3[1];
     // EAN-13 (13 cyfr z 99 lub 98)
-    const b4 = text.match(/\b(9[89]\d{11})\b/);
+    const b4 = clean.match(/\b(9[89]\d{11})\b/);
     if (b4) return b4[1];
 
     return null;

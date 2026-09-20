@@ -51,6 +51,12 @@ Budowa autonomicznej aplikacji działającej lokalnie w przeglądarce, z wykorzy
 - [x] Korekta warstw z-index okien modalnych: Wyniesienie dialogów zapisu paragonu i duplikatów ponad dolną nawigację (`z-index: 20000`) wraz z responsywnym przewijaniem na niskich ekranach.
 - [x] Obsługa usuwania paragonów w Archiwum (Faza 1 tryb testowy): Zastąpienie blokowanego na urządzeniach mobilnych i w PWA natywnego `window.confirm()` dedykowanym modalem potwierdzenia trwałego usunięcia z bezpieczną konwersją klucza głównego w Dexie.js.
 
+- [x] Ostateczne rozwiązanie problemu zasłaniania popupów przez dolne menu (`BottomNav`):
+  - Użycie `<teleport to="body">` dla wszystkich okien modalnych w aplikacji (`ScannerView.vue` oraz `WalletView.vue`), co eliminuje pułapkę lokalnego kontekstu stosu (stacking context).
+  - Skrócenie wysokości okien dialogowych (`max-height: min(78dvh, 560px)`), redukcja marginesów wewnętrznych oraz dodanie dolnego marginesu bezpieczeństwa overlayu (`padding-bottom: 95px`), co gwarantuje pełną widoczność przycisku "Anuluj" bez wchodzenia pod dolną belkę nawigacji na dowolnym telefonie.
+  - Dodanie stałego przycisku zamknięcia `✕` (`.modal-close-btn`) w prawym górnym rogu każdego modala ułatwiającego natychmiastowe wyjście jednym dotknięciem.
+  - Wdrożenie kontrastowego, czerwonego przycisku `.btn-cancel` dla szybkiej rezygnacji z zapisu.
+
 ### Etap 1.5: Rozpoznawanie Danych (OCR) - ZADANIE DODATKOWE
 - [x] Integracja `Tesseract.js` (wsparcie języka polskiego i angielskiego z lazy workerem).
 - [x] Wdrożenie analizy Regex na zrobionym zdjęciu w celu automatycznego wyciągnięcia Daty i Kwoty (wzorce paragonowe: SUMA, RAZEM, ZWROT KAUCJI, daty ISO/kropkowe/kreskowe).
@@ -66,6 +72,12 @@ Budowa autonomicznej aplikacji działającej lokalnie w przeglądarce, z wykorzy
   - Płynne raportowanie postępu analizy OCR na ekranie skanera (dynamiczny toast z animowanym wskaźnikiem `⏳ Trwa analiza tekstu OCR (X%)...`).
   - Wyraźny komunikat końcowy, gdy OCR przestał pracować i nie udało mu się nic znaleźć (np. `OCR zakończył pracę: Nie udało się odnaleźć kodu ani danych paragonu...`).
   - Usunięcie przedwczesnego ukrywania powiadomienia w trakcie trwania procedury OCR.
+- [x] Głęboka kalibracja OCR i wieloprzebiegowego silnika pod kątem zdjęć z automatu (Lidl/Tomra):
+  - Umożliwienie upscalingu zdjęć niskorozdzielczych w silniku ZXing (scale > 1 dla ujęć poniżej 1600px), gwarantujące natychmiastowe rozkodowanie kodu 128 z pełną precyzją.
+  - Obsługa identyfikatorów zastosowań GS1 w kodach Lidl (oczyszczanie nawiasów `(20)01(94)...`) w `BarcodeParserService.js`.
+  - Automatyczne kadrowanie obszaru paragonu (Auto-crop ROI) odcinające ciemne tło automatu recyklingowego.
+  - Inwersja negatywowa czarnych belek nagłówkowych z białym drukiem (np. `PLN 0.35`).
+  - Rozszerzenie słowników OCR o adresy lokalne i linie paragonowe (Braniborska, Wrocław, Tomra 90, `7x Butelka plastikowa 0.35`).
 
 ---
 

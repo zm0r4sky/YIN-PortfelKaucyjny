@@ -17,7 +17,8 @@ export const BarcodeParserService = {
    */
   parseBarcode(barcode) {
     if (!barcode) return { detected: false };
-    const code = barcode.trim();
+    // Oczyszczamy kod z nawiasów GS1 Application Identifier (np. (20)01(94)... -> 200194...) oraz spacji i kresek
+    const code = barcode.trim().replace(/[()\s\-_]/g, '');
 
     // WZORZEC 1: Biedronka Recyklomat (Code 128 - 28 cyfr)
     // Przykład: 9841 01614 5531 178982337 1 00650

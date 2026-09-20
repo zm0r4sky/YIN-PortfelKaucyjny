@@ -183,118 +183,127 @@
     </div>
 
     <!-- MODAL: Prezenter Kodu Kreskowego dla Kasjera -->
-    <transition name="fade">
-      <div v-if="activePresenterReceipt" class="modal-backdrop" @click.self="closeBarcodePresenter">
-        <div class="cashier-modal">
-          <div class="cashier-header">
-            <span class="shop-badge large" :class="getShopClass(activePresenterReceipt.shop_name)">
-              {{ activePresenterReceipt.shop_name }}
-            </span>
-            <div class="cashier-amount">
-              {{ activePresenterReceipt.amount.toFixed(2) }} <span>zł</span>
+    <teleport to="body">
+      <transition name="fade">
+        <div v-if="activePresenterReceipt" class="modal-backdrop" @click.self="closeBarcodePresenter">
+          <div class="cashier-modal">
+            <button type="button" class="modal-close-btn" @click="closeBarcodePresenter" title="Zamknij">✕</button>
+            <div class="cashier-header">
+              <span class="shop-badge large" :class="getShopClass(activePresenterReceipt.shop_name)">
+                {{ activePresenterReceipt.shop_name }}
+              </span>
+              <div class="cashier-amount">
+                {{ activePresenterReceipt.amount.toFixed(2) }} <span>zł</span>
+              </div>
+              <p class="cashier-hint">Skieruj kod do czytnika kasowego lub automatu</p>
             </div>
-            <p class="cashier-hint">Skieruj kod do czytnika kasowego lub automatu</p>
-          </div>
 
-          <!-- Wygenerowany obraz kodu kreskowego -->
-          <div class="barcode-display-box">
-            <div v-if="isGeneratingBarcode" class="barcode-spinner">
-              Generowanie ostrości kodu...
+            <!-- Wygenerowany obraz kodu kreskowego -->
+            <div class="barcode-display-box">
+              <div v-if="isGeneratingBarcode" class="barcode-spinner">
+                Generowanie ostrości kodu...
+              </div>
+              <img 
+                v-else-if="presenterBarcodeUrl" 
+                :src="presenterBarcodeUrl" 
+                alt="Kod kreskowy" 
+                class="generated-barcode-img" 
+              />
+              <div class="barcode-human-text">{{ activePresenterReceipt.barcode }}</div>
             </div>
-            <img 
-              v-else-if="presenterBarcodeUrl" 
-              :src="presenterBarcodeUrl" 
-              alt="Kod kreskowy" 
-              class="generated-barcode-img" 
-            />
-            <div class="barcode-human-text">{{ activePresenterReceipt.barcode }}</div>
-          </div>
 
-          <div class="cashier-actions">
-            <button class="btn btn-primary btn-large" @click="markAsUsedFromPresenter">
-              ✓ Zrealizowano kaucję (Archiwizuj)
-            </button>
-            <button class="btn btn-secondary" @click="closeBarcodePresenter">
-              Zamknij
-            </button>
+            <div class="cashier-actions">
+              <button class="btn btn-primary btn-large" @click="markAsUsedFromPresenter">
+                ✓ Zrealizowano kaucję (Archiwizuj)
+              </button>
+              <button class="btn btn-secondary" @click="closeBarcodePresenter">
+                Zamknij
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    </transition>
+      </transition>
+    </teleport>
 
     <!-- MODAL: Edycja Paragonu -->
-    <transition name="fade">
-      <div v-if="editingReceipt" class="modal-backdrop" @click.self="editingReceipt = null">
-        <div class="edit-modal glass-card">
-          <h3>Edytuj Paragon</h3>
-          
-          <div class="form-group">
-            <label>Sklep:</label>
-            <select v-model="editForm.shop_name" class="modal-select">
-              <option v-for="shop in popularShops" :key="shop" :value="shop">{{ shop }}</option>
-            </select>
-          </div>
+    <teleport to="body">
+      <transition name="fade">
+        <div v-if="editingReceipt" class="modal-backdrop" @click.self="editingReceipt = null">
+          <div class="edit-modal glass-card">
+            <button type="button" class="modal-close-btn" @click="editingReceipt = null" title="Zamknij">✕</button>
+            <h3>Edytuj Paragon</h3>
+            
+            <div class="form-group">
+              <label>Sklep:</label>
+              <select v-model="editForm.shop_name" class="modal-select">
+                <option v-for="shop in popularShops" :key="shop" :value="shop">{{ shop }}</option>
+              </select>
+            </div>
 
-          <div class="form-group">
-            <label>Wartość kaucji (zł):</label>
-            <input 
-              type="number" 
-              step="0.50" 
-              v-model.number="editForm.amount" 
-              class="modal-input" 
-            />
-          </div>
+            <div class="form-group">
+              <label>Wartość kaucji (zł):</label>
+              <input 
+                type="number" 
+                step="0.50" 
+                v-model.number="editForm.amount" 
+                class="modal-input" 
+              />
+            </div>
 
-          <div class="form-group">
-            <label>Data ważności:</label>
-            <input 
-              type="date" 
-              v-model="editForm.expiration_date" 
-              class="modal-input" 
-            />
-          </div>
+            <div class="form-group">
+              <label>Data ważności:</label>
+              <input 
+                type="date" 
+                v-model="editForm.expiration_date" 
+                class="modal-input" 
+              />
+            </div>
 
-          <div class="modal-actions-grid">
-            <button class="btn btn-primary" @click="saveEditedReceipt">Zapisz zmiany</button>
-            <button class="btn btn-secondary" @click="editingReceipt = null">Anuluj</button>
+            <div class="modal-actions-grid">
+              <button class="btn btn-primary" @click="saveEditedReceipt">Zapisz zmiany</button>
+              <button class="btn btn-secondary" @click="editingReceipt = null">Anuluj</button>
+            </div>
           </div>
         </div>
-      </div>
-    </transition>
+      </transition>
+    </teleport>
 
     <!-- MODAL: Potwierdzenie trwałego usunięcia paragonu (Faza 1 tryb testowy) -->
-    <transition name="fade">
-      <div v-if="receiptToDelete" class="modal-backdrop" @click.self="receiptToDelete = null">
-        <div class="delete-modal glass-card">
-          <div class="delete-icon">🗑️</div>
-          <h3 class="delete-title">Usunąć paragon?</h3>
-          <p class="delete-subtitle">
-            Czy na pewno chcesz trwale usunąć ten paragon z archiwum?
-          </p>
+    <teleport to="body">
+      <transition name="fade">
+        <div v-if="receiptToDelete" class="modal-backdrop" @click.self="receiptToDelete = null">
+          <div class="delete-modal glass-card">
+            <button type="button" class="modal-close-btn" @click="receiptToDelete = null" title="Zamknij">✕</button>
+            <div class="delete-icon">🗑️</div>
+            <h3 class="delete-title">Usunąć paragon?</h3>
+            <p class="delete-subtitle">
+              Czy na pewno chcesz trwale usunąć ten paragon z archiwum?
+            </p>
 
-          <div class="delete-receipt-preview">
-            <span class="shop-badge mini" :class="getShopClass(receiptToDelete.shop_name)">
-              {{ receiptToDelete.shop_name }}
-            </span>
-            <span class="delete-preview-amount">{{ receiptToDelete.amount.toFixed(2) }} zł</span>
-            <div class="delete-preview-code">#{{ receiptToDelete.barcode }}</div>
-          </div>
+            <div class="delete-receipt-preview">
+              <span class="shop-badge mini" :class="getShopClass(receiptToDelete.shop_name)">
+                {{ receiptToDelete.shop_name }}
+              </span>
+              <span class="delete-preview-amount">{{ receiptToDelete.amount.toFixed(2) }} zł</span>
+              <div class="delete-preview-code">#{{ receiptToDelete.barcode }}</div>
+            </div>
 
-          <p class="delete-note">
-            ⚠️ <em>W Fazie 1 funkcja jest dostępna do celów testowych. W Fazie 2 usuwanie z archiwum będzie zablokowane.</em>
-          </p>
+            <p class="delete-note">
+              ⚠️ <em>W Fazie 1 funkcja jest dostępna do celów testowych. W Fazie 2 usuwanie z archiwum będzie zablokowane.</em>
+            </p>
 
-          <div class="delete-actions">
-            <button class="btn btn-danger" @click="executeDelete">
-              🗑️ Usuń trwale
-            </button>
-            <button class="btn btn-secondary" @click="receiptToDelete = null">
-              Anuluj
-            </button>
+            <div class="delete-actions">
+              <button class="btn btn-danger" @click="executeDelete">
+                🗑️ Usuń trwale
+              </button>
+              <button class="btn btn-secondary" @click="receiptToDelete = null">
+                Anuluj
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    </transition>
+      </transition>
+    </teleport>
 
     <!-- Toast powiadomień -->
     <transition name="fade">
@@ -881,25 +890,51 @@ onMounted(() => {
   width: 100vw;
   height: 100vh;
   height: 100dvh;
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(0, 0, 0, 0.78);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
-  padding-bottom: max(24px, env(safe-area-inset-bottom));
-  z-index: 20000;
+  padding: 16px 16px 95px 16px;
+  z-index: 25000;
   box-sizing: border-box;
 }
 
+.modal-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.07);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  color: #475569;
+  font-size: 16px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.modal-close-btn:active {
+  background: rgba(239, 68, 68, 0.2);
+  color: #b91c1c;
+  transform: scale(0.92);
+}
+
 .cashier-modal {
+  position: relative;
   background: #ffffff;
   width: 100%;
   max-width: 420px;
-  max-height: calc(100dvh - 32px);
+  max-height: min(78dvh, 580px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  border-radius: 24px;
-  padding: 24px;
+  border-radius: 20px;
+  padding: 20px 20px 24px;
   text-align: center;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
 }
@@ -955,11 +990,14 @@ onMounted(() => {
 }
 
 .edit-modal {
+  position: relative;
   width: 100%;
   max-width: 400px;
-  max-height: calc(100dvh - 32px);
+  max-height: min(78dvh, 560px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  border-radius: 20px;
+  padding: 20px 20px 24px;
 }
 
 .modal-select, .modal-input {
@@ -1016,14 +1054,15 @@ onMounted(() => {
 
 /* Modal usuwania */
 .delete-modal {
+  position: relative;
   width: 100%;
   max-width: 380px;
-  max-height: calc(100dvh - 32px);
+  max-height: min(78dvh, 540px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   background: #ffffff;
-  border-radius: 24px;
-  padding: 24px;
+  border-radius: 20px;
+  padding: 20px 20px 24px;
   text-align: center;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
 }

@@ -84,220 +84,229 @@
         class="localized-bounding-box" 
         :style="localizedBoxStyle"
       >
-        <span class="lock-label">Zablokowano kod!</span>
+        <span class="localized-tag">Kod wykryty</span>
       </div>
 
       <!-- MODAL 1: Ostrzeżenie o DUPLIKACIE w aktywnym portfelu -->
-      <transition name="fade-up">
-        <div v-if="showDuplicateModal" class="save-modal-overlay">
-          <div class="save-modal glass-panel duplicate-modal">
-            <div class="modal-header">
-              <div class="warning-icon">⚠️</div>
-              <h3 class="warning-title">Ten kod jest już w portfelu!</h3>
-              <p class="barcode-preview">#{{ duplicateReceipt?.barcode }}</p>
-            </div>
-
-            <div class="duplicate-details">
-              <p>Zeskanowany paragon został już wcześniej dodany do Twoich aktywnych środków:</p>
-              <div class="duplicate-info-card">
-                <div class="dup-row">
-                  <span>Sklep:</span>
-                  <strong>{{ duplicateReceipt?.shop_name }}</strong>
-                </div>
-                <div class="dup-row">
-                  <span>Wartość kaucji:</span>
-                  <strong class="dup-amount">{{ duplicateReceipt?.amount.toFixed(2) }} zł</strong>
-                </div>
-                <div class="dup-row">
-                  <span>Termin ważności:</span>
-                  <strong>{{ duplicateReceipt?.expiration_date }}</strong>
-                </div>
-              </div>
-            </div>
-
-            <div class="modal-actions">
-              <button class="btn btn-primary" @click="goToWallet">
-                👛 Przejdź do tego paragonu w portfelu
-              </button>
-              <button class="btn btn-secondary" @click="resetScan">
-                Skanuj inny paragon
-              </button>
-            </div>
-          </div>
-        </div>
-      </transition>
-
-      <!-- MODAL 2: Informacja o DUPLIKACIE w ARCHIWUM -->
-      <transition name="fade-up">
-        <div v-if="showArchivedDuplicateModal" class="save-modal-overlay">
-          <div class="save-modal glass-panel archived-dup-modal">
-            <div class="modal-header">
-              <div class="info-icon">ℹ️</div>
-              <h3>Paragon był już wykorzystany!</h3>
-              <p class="barcode-preview">#{{ duplicateReceipt?.barcode }}</p>
-            </div>
-
-            <div class="duplicate-details">
-              <p>Ten kod znajduje się w Twoim <strong>Archiwum</strong> jako zrealizowany:</p>
-              <div class="duplicate-info-card">
-                <div class="dup-row">
-                  <span>Sklep:</span>
-                  <strong>{{ duplicateReceipt?.shop_name }}</strong>
-                </div>
-                <div class="dup-row">
-                  <span>Kwota:</span>
-                  <strong>{{ duplicateReceipt?.amount.toFixed(2) }} zł</strong>
-                </div>
-              </div>
-            </div>
-
-            <div class="modal-actions">
-              <button class="btn btn-primary" @click="restoreDuplicateToActive">
-                ↩ Przywróć do aktywnych paragonów
-              </button>
-              <button class="btn btn-secondary" @click="resetScan">
-                Skanuj inny paragon
-              </button>
-            </div>
-          </div>
-        </div>
-      </transition>
-
-      <!-- MODAL 3: Karta zatwierdzenia i uzupełnienia danych paragonu (Nowy kod) -->
-      <transition name="fade-up">
-        <div v-if="showSaveDialog" class="save-modal-overlay">
-          <div class="save-modal glass-panel">
-            <div class="modal-header">
-              <div class="success-icon">✓</div>
-              <h3>Kod Rozpoznany!</h3>
-              <p class="barcode-preview">{{ scanResult }}</p>
-              <div v-if="isAutoParsed" class="auto-detected-badge">
-                ⚡ Dane odczytane automatycznie z kodu
-              </div>
-            </div>
-
-            <!-- Panel Testowy OCR (Tesseract.js) -->
-            <div class="ocr-test-box" v-if="isOcrRunning || ocrResult">
-              <div class="ocr-header">
-                <span>🧪 Wyniki Analizy OCR (Tesseract.js)</span>
-                <span v-if="isOcrRunning" class="ocr-pulse">Analizuję tekst...</span>
-                <span v-else class="ocr-confidence">Pewność: {{ ocrResult?.confidence.toFixed(0) }}%</span>
+      <teleport to="body">
+        <transition name="fade-up">
+          <div v-if="showDuplicateModal" class="save-modal-overlay" @click.self="resetScan">
+            <div class="save-modal glass-panel duplicate-modal">
+              <button type="button" class="modal-close-btn" @click="resetScan" title="Zamknij">✕</button>
+              <div class="modal-header">
+                <div class="warning-icon">⚠️</div>
+                <h3 class="warning-title">Ten kod jest już w portfelu!</h3>
+                <p class="barcode-preview">#{{ duplicateReceipt?.barcode }}</p>
               </div>
 
-              <!-- Pasek postępu OCR -->
-              <div v-if="isOcrRunning" class="ocr-progress-bar">
-                <div class="ocr-progress-fill" :style="{ width: (ocrProgress * 100) + '%' }"></div>
+              <div class="duplicate-details">
+                <p>Zeskanowany paragon został już wcześniej dodany do Twoich aktywnych środków:</p>
+                <div class="duplicate-info-card">
+                  <div class="dup-row">
+                    <span>Sklep:</span>
+                    <strong>{{ duplicateReceipt?.shop_name }}</strong>
+                  </div>
+                  <div class="dup-row">
+                    <span>Wartość kaucji:</span>
+                    <strong class="dup-amount">{{ duplicateReceipt?.amount.toFixed(2) }} zł</strong>
+                  </div>
+                  <div class="dup-row">
+                    <span>Termin ważności:</span>
+                    <strong>{{ duplicateReceipt?.expiration_date }}</strong>
+                  </div>
+                </div>
               </div>
-              <p v-if="isOcrRunning" class="ocr-status-text">{{ ocrStatusText }}</p>
 
-              <!-- Podsumowanie danych wyciągniętych przez OCR -->
-              <div v-if="ocrResult && !isOcrRunning" class="ocr-extracted-grid">
-                <div class="ocr-tag">
-                  Sklep: <strong>{{ ocrResult.extracted.shop_name || 'Brak' }}</strong>
-                </div>
-                <div class="ocr-tag">
-                  Kwota: <strong>{{ ocrResult.extracted.amount ? ocrResult.extracted.amount.toFixed(2) + ' zł' : 'Brak' }}</strong>
-                </div>
-                <div v-if="ocrResult.extracted.print_date" class="ocr-tag">
-                  Wydruk: <strong>{{ ocrResult.extracted.print_date }}</strong>
-                </div>
-                <div class="ocr-tag">
-                  Ważność: <strong>{{ ocrResult.extracted.expiration_date || 'Brak' }}</strong>
-                </div>
-                <button 
-                  v-if="ocrResult.extracted.shop_name || ocrResult.extracted.amount || ocrResult.extracted.expiration_date" 
-                  type="button" 
-                  class="btn-apply-ocr"
-                  @click="applyOcrValues"
-                >
-                  📥 Zastosuj dane z OCR
+              <div class="modal-actions">
+                <button class="btn btn-primary" @click="goToWallet">
+                  👛 Przejdź do tego paragonu w portfelu
+                </button>
+                <button class="btn btn-secondary" @click="resetScan">
+                  Skanuj inny paragon
                 </button>
               </div>
-
-              <!-- Rozwijany podgląd surowego tekstu z paragonu i obrazu kalibracji -->
-              <div v-if="ocrResult && !isOcrRunning" class="raw-ocr-section">
-                <div class="ocr-toggle-buttons">
-                  <button type="button" class="btn-toggle-raw" @click="showRawOcrText = !showRawOcrText">
-                    {{ showRawOcrText ? '▲ Ukryj tekst OCR' : '▼ Tekst OCR' }}
-                  </button>
-                  <button v-if="ocrPreviewImage" type="button" class="btn-toggle-raw" @click="showOcrImage = !showOcrImage">
-                    {{ showOcrImage ? '▲ Ukryj obraz po filtrze' : '🖼️ Obraz po filtrze' }}
-                  </button>
-                </div>
-                <pre v-if="showRawOcrText" class="raw-text-box">{{ ocrResult.rawText }}</pre>
-                <div v-if="showOcrImage && ocrPreviewImage" class="ocr-image-preview-wrapper">
-                  <img :src="ocrPreviewImage" class="ocr-filtered-img" alt="Podgląd po kalibracji" />
-                </div>
-              </div>
-            </div>
-
-            <!-- Formularz danych paragonu -->
-            <div class="form-body">
-              <!-- Wybór sklepu -->
-              <div class="form-group">
-                <label>Sieć handlowa / Sklep:</label>
-                <div class="shop-chips">
-                  <button 
-                    v-for="shop in popularShops" 
-                    :key="shop" 
-                    type="button"
-                    class="chip-btn" 
-                    :class="{ 'active': receiptForm.shop_name === shop }"
-                    @click="receiptForm.shop_name = shop"
-                  >
-                    {{ shop }}
-                  </button>
-                </div>
-              </div>
-
-              <!-- Kwota kaucji -->
-              <div class="form-group">
-                <label>Wartość kaucji (zł):</label>
-                <div class="amount-input-row">
-                  <input 
-                    type="number" 
-                    step="0.50" 
-                    min="0" 
-                    v-model.number="receiptForm.amount" 
-                    class="amount-input" 
-                  />
-                  <span class="currency">PLN</span>
-                </div>
-                <!-- Szybkie dodawanie kwot -->
-                <div class="quick-amounts">
-                  <button type="button" class="btn-quick" @click="addAmount(0.50)">+0.50 zł</button>
-                  <button type="button" class="btn-quick" @click="addAmount(1.00)">+1.00 zł</button>
-                  <button type="button" class="btn-quick" @click="addAmount(5.00)">+5.00 zł</button>
-                  <button type="button" class="btn-quick" @click="addAmount(10.00)">+10.00 zł</button>
-                </div>
-              </div>
-
-              <!-- Data ważności -->
-              <div class="form-group">
-                <label>Data ważności:</label>
-                <input 
-                  type="date" 
-                  v-model="receiptForm.expiration_date" 
-                  class="date-input" 
-                />
-              </div>
-            </div>
-
-            <!-- Przyciski akcji -->
-            <div class="modal-actions">
-              <button class="btn btn-primary" @click="confirmSave(true)">
-                💾 Zapisz i idź do portfela
-              </button>
-              <button class="btn btn-secondary" @click="confirmSave(false)">
-                ➕ Zapisz i skanuj kolejny
-              </button>
-              <button class="btn btn-ghost" @click="cancelSave">
-                Anuluj
-              </button>
             </div>
           </div>
-        </div>
-      </transition>
+        </transition>
+      </teleport>
+
+      <!-- MODAL 2: Informacja o DUPLIKACIE w ARCHIWUM -->
+      <teleport to="body">
+        <transition name="fade-up">
+          <div v-if="showArchivedDuplicateModal" class="save-modal-overlay" @click.self="resetScan">
+            <div class="save-modal glass-panel archived-dup-modal">
+              <button type="button" class="modal-close-btn" @click="resetScan" title="Zamknij">✕</button>
+              <div class="modal-header">
+                <div class="info-icon">ℹ️</div>
+                <h3>Paragon był już wykorzystany!</h3>
+                <p class="barcode-preview">#{{ duplicateReceipt?.barcode }}</p>
+              </div>
+
+              <div class="duplicate-details">
+                <p>Ten kod znajduje się w Twoim <strong>Archiwum</strong> jako zrealizowany:</p>
+                <div class="duplicate-info-card">
+                  <div class="dup-row">
+                    <span>Sklep:</span>
+                    <strong>{{ duplicateReceipt?.shop_name }}</strong>
+                  </div>
+                  <div class="dup-row">
+                    <span>Kwota:</span>
+                    <strong>{{ duplicateReceipt?.amount.toFixed(2) }} zł</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div class="modal-actions">
+                <button class="btn btn-primary" @click="restoreDuplicateToActive">
+                  ↩ Przywróć do aktywnych paragonów
+                </button>
+                <button class="btn btn-secondary" @click="resetScan">
+                  Skanuj inny paragon
+                </button>
+              </div>
+            </div>
+          </div>
+        </transition>
+      </teleport>
+
+      <!-- MODAL 3: Karta zatwierdzenia i uzupełnienia danych paragonu (Nowy kod) -->
+      <teleport to="body">
+        <transition name="fade-up">
+          <div v-if="showSaveDialog" class="save-modal-overlay" @click.self="cancelSave">
+            <div class="save-modal glass-panel">
+              <button type="button" class="modal-close-btn" @click="cancelSave" title="Zamknij">✕</button>
+              <div class="modal-header">
+                <div class="success-icon">✓</div>
+                <h3>Kod Rozpoznany!</h3>
+                <p class="barcode-preview">{{ scanResult }}</p>
+                <div v-if="isAutoParsed" class="auto-detected-badge">
+                  ⚡ Dane odczytane automatycznie z kodu
+                </div>
+              </div>
+
+              <!-- Panel Testowy OCR (Tesseract.js) -->
+              <div class="ocr-test-box" v-if="isOcrRunning || ocrResult">
+                <div class="ocr-header">
+                  <span>🧪 Wyniki Analizy OCR (Tesseract.js)</span>
+                  <span v-if="isOcrRunning" class="ocr-pulse">Analizuję tekst...</span>
+                  <span v-else class="ocr-confidence">Pewność: {{ ocrResult?.confidence.toFixed(0) }}%</span>
+                </div>
+
+                <!-- Pasek postępu OCR -->
+                <div v-if="isOcrRunning" class="ocr-progress-bar">
+                  <div class="ocr-progress-fill" :style="{ width: (ocrProgress * 100) + '%' }"></div>
+                </div>
+                <p v-if="isOcrRunning" class="ocr-status-text">{{ ocrStatusText }}</p>
+
+                <!-- Podsumowanie danych wyciągniętych przez OCR -->
+                <div v-if="ocrResult && !isOcrRunning" class="ocr-extracted-grid">
+                  <div class="ocr-tag">
+                    Sklep: <strong>{{ ocrResult.extracted.shop_name || 'Brak' }}</strong>
+                  </div>
+                  <div class="ocr-tag">
+                    Kwota: <strong>{{ ocrResult.extracted.amount ? ocrResult.extracted.amount.toFixed(2) + ' zł' : 'Brak' }}</strong>
+                  </div>
+                  <div v-if="ocrResult.extracted.print_date" class="ocr-tag">
+                    Wydruk: <strong>{{ ocrResult.extracted.print_date }}</strong>
+                  </div>
+                  <div class="ocr-tag">
+                    Ważność: <strong>{{ ocrResult.extracted.expiration_date || 'Brak' }}</strong>
+                  </div>
+                  <button 
+                    v-if="ocrResult.extracted.shop_name || ocrResult.extracted.amount || ocrResult.extracted.expiration_date" 
+                    type="button" 
+                    class="btn-apply-ocr"
+                    @click="applyOcrValues"
+                  >
+                    📥 Zastosuj dane z OCR
+                  </button>
+                </div>
+
+                <!-- Rozwijany podgląd surowego tekstu z paragonu i obrazu kalibracji -->
+                <div v-if="ocrResult && !isOcrRunning" class="raw-ocr-section">
+                  <div class="ocr-toggle-buttons">
+                    <button type="button" class="btn-toggle-raw" @click="showRawOcrText = !showRawOcrText">
+                      {{ showRawOcrText ? '▲ Ukryj tekst OCR' : '▼ Tekst OCR' }}
+                    </button>
+                    <button v-if="ocrPreviewImage" type="button" class="btn-toggle-raw" @click="showOcrImage = !showOcrImage">
+                      {{ showOcrImage ? '▲ Ukryj obraz po filtrze' : '🖼️ Obraz po filtrze' }}
+                    </button>
+                  </div>
+                  <pre v-if="showRawOcrText" class="raw-text-box">{{ ocrResult.rawText }}</pre>
+                  <div v-if="showOcrImage && ocrPreviewImage" class="ocr-image-preview-wrapper">
+                    <img :src="ocrPreviewImage" class="ocr-filtered-img" alt="Podgląd po kalibracji" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Formularz danych paragonu -->
+              <div class="form-body">
+                <!-- Wybór sklepu -->
+                <div class="form-group">
+                  <label>Sieć handlowa / Sklep:</label>
+                  <div class="shop-chips">
+                    <button 
+                      v-for="shop in popularShops" 
+                      :key="shop" 
+                      type="button"
+                      class="chip-btn" 
+                      :class="{ 'active': receiptForm.shop_name === shop }"
+                      @click="receiptForm.shop_name = shop"
+                    >
+                      {{ shop }}
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Kwota kaucji -->
+                <div class="form-group">
+                  <label>Wartość kaucji (zł):</label>
+                  <div class="amount-input-row">
+                    <input 
+                      type="number" 
+                      step="0.50" 
+                      min="0" 
+                      v-model.number="receiptForm.amount" 
+                      class="amount-input" 
+                    />
+                    <span class="currency">PLN</span>
+                  </div>
+                  <!-- Szybkie dodawanie kwot -->
+                  <div class="quick-amounts">
+                    <button type="button" class="btn-quick" @click="addAmount(0.50)">+0.50 zł</button>
+                    <button type="button" class="btn-quick" @click="addAmount(1.00)">+1.00 zł</button>
+                    <button type="button" class="btn-quick" @click="addAmount(5.00)">+5.00 zł</button>
+                    <button type="button" class="btn-quick" @click="addAmount(10.00)">+10.00 zł</button>
+                  </div>
+                </div>
+
+                <!-- Data ważności -->
+                <div class="form-group">
+                  <label>Data ważności:</label>
+                  <input 
+                    type="date" 
+                    v-model="receiptForm.expiration_date" 
+                    class="date-input" 
+                  />
+                </div>
+              </div>
+
+              <!-- Przyciski akcji -->
+              <div class="modal-actions">
+                <button class="btn btn-primary" @click="confirmSave(true)">
+                  💾 Zapisz i idź do portfela
+                </button>
+                <button class="btn btn-secondary" @click="confirmSave(false)">
+                  ➕ Zapisz i skanuj kolejny
+                </button>
+                <button class="btn btn-cancel" @click="cancelSave">
+                  ✕ Anuluj
+                </button>
+              </div>
+            </div>
+          </div>
+        </transition>
+      </teleport>
       
       <!-- Komunikaty błędów / powiadomienia -->
       <div 
@@ -1047,25 +1056,51 @@ onUnmounted(() => {
   width: 100vw;
   height: 100vh;
   height: 100dvh;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.85);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 20000;
+  z-index: 25000;
   pointer-events: auto;
-  padding: 16px;
+  padding: 16px 16px 95px 16px;
   box-sizing: border-box;
 }
 
 .save-modal {
+  position: relative;
   width: 100%;
   max-width: 440px;
-  max-height: calc(100dvh - 32px);
+  max-height: min(78dvh, 580px);
   overflow-y: auto;
-  border-radius: 24px;
-  padding: 24px;
+  border-radius: 20px;
+  padding: 20px 20px 24px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
   -webkit-overflow-scrolling: touch;
+}
+
+.modal-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-size: 16px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.modal-close-btn:active {
+  background: rgba(239, 68, 68, 0.6);
+  transform: scale(0.92);
 }
 
 .duplicate-modal {
@@ -1454,6 +1489,20 @@ onUnmounted(() => {
 .btn-ghost {
   background: transparent;
   color: #aaa;
+}
+.btn-cancel {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  color: #fca5a5;
+  font-weight: 600;
+  padding: 11px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-cancel:active {
+  background: rgba(239, 68, 68, 0.4);
+  transform: scale(0.97);
 }
 
 .error-toast {

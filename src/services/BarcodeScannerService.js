@@ -307,12 +307,14 @@ class BarcodeScannerServiceClass {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-    // PASS 2: Downscale to optimal 1600px width + Grayscale Contrast Stretch
+    // PASS 2: Scale/Normalize to optimal 1600px width (upscale low-res, downscale 4K) + Grayscale Contrast Stretch
     const targetWidth = 1600;
-    const scale = Math.min(1, targetWidth / img.naturalWidth);
+    const scale = Math.max(1, Math.min(3, targetWidth / (img.naturalWidth || 1000)));
     canvas.width = Math.round(img.naturalWidth * scale);
     canvas.height = Math.round(img.naturalHeight * scale);
 
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     this.enhanceThermalPaperContrast(ctx, canvas.width, canvas.height);
 
