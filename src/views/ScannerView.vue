@@ -187,6 +187,7 @@
                 </div>
                 <div v-else-if="isAutoParsed" class="auto-detected-badge">
                   ⚡ Dane odczytane automatycznie z kodu
+                  <span v-if="isChecksumValid === true" style="margin-left: 6px; color: #a7f3d0; font-weight: 700;">✓ Suma GS1 OK</span>
                 </div>
               </div>
 
@@ -303,11 +304,29 @@
 
               <!-- Przyciski akcji -->
               <div class="modal-actions">
-                <button class="btn btn-primary" @click="confirmSave(true)">
-                  💾 Zapisz i idź do portfela
+                <button 
+                  class="btn btn-primary" 
+                  :disabled="isOcrRunning" 
+                  @click="confirmSave(true)"
+                >
+                  <template v-if="isOcrRunning">
+                    ⏳ Jeszcze chwila...
+                  </template>
+                  <template v-else>
+                    💾 Zapisz i idź do portfela
+                  </template>
                 </button>
-                <button class="btn btn-secondary" @click="confirmSave(false)">
-                  ➕ Zapisz i skanuj kolejny
+                <button 
+                  class="btn btn-secondary" 
+                  :disabled="isOcrRunning" 
+                  @click="confirmSave(false)"
+                >
+                  <template v-if="isOcrRunning">
+                    ⏳ Ładowanie...
+                  </template>
+                  <template v-else>
+                    ➕ Zapisz i skanuj kolejny
+                  </template>
                 </button>
                 <button class="btn btn-cancel" @click="cancelSave">
                   ✕ Anuluj
@@ -355,6 +374,7 @@ const showSaveDialog = ref(false);
 const isAutoParsed = ref(false);
 const isDualVerified = ref(false);
 const recoveredFromOcr = ref(false);
+const isChecksumValid = ref(null);
 
 // Duplikaty
 const showDuplicateModal = ref(false);
@@ -583,6 +603,7 @@ const onBarcodeDetected = async (rawCode, sourceFile = null) => {
   receiptForm.expiration_date = parsed.expiration_date || ReceiptService.getDefaultExpirationDate();
   parsedBarcodeHasDate.value = !!parsed.has_date;
   isAutoParsed.value = parsed.detected;
+  isChecksumValid.value = parsed.checksum_valid !== undefined ? parsed.checksum_valid : null;
 
   BarcodeScannerService.notifySuccess();
   stopCamera();
@@ -712,6 +733,7 @@ const addAmount = (val) => {
 };
 
 const confirmSave = async (goToWallet = true) => {
+  if (isOcrRunning.value) return;
   if (!scanResult.value) return;
 
   try {
@@ -734,6 +756,7 @@ const confirmSave = async (goToWallet = true) => {
       ocrPreviewImage.value = null;
       showOcrImage.value = false;
       showRawOcrText.value = false;
+      isChecksumValid.value = null;
       startCamera();
     }
   } catch (err) {
@@ -752,6 +775,7 @@ const cancelSave = () => {
   showRawOcrText.value = false;
   isDualVerified.value = false;
   recoveredFromOcr.value = false;
+  isChecksumValid.value = null;
   startCamera();
 };
 
@@ -1092,6 +1116,8 @@ onUnmounted(() => {
   pointer-events: auto;
   padding: 16px 16px 95px 16px;
   box-sizing: border-box;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 .save-modal {
@@ -1100,10 +1126,14 @@ onUnmounted(() => {
   max-width: 440px;
   max-height: min(78dvh, 580px);
   overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
   border-radius: 20px;
-  padding: 20px 20px 24px;
+  padding: 20px 18px 24px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
   -webkit-overflow-scrolling: touch;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .modal-close-btn {
@@ -1218,6 +1248,9 @@ onUnmounted(() => {
   border-radius: 6px;
   display: inline-block;
   word-break: break-all;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .auto-detected-badge {
@@ -1388,9 +1421,14 @@ onUnmounted(() => {
   border-radius: 6px;
   max-height: 100px;
   overflow-y: auto;
+  overflow-x: hidden;
   white-space: pre-wrap;
+  word-break: break-all;
+  overflow-wrap: anywhere;
   margin: 4px 0 0;
   font-family: monospace;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .form-body {
@@ -1441,10 +1479,15 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .amount-input {
   flex: 1;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
   background: rgba(0, 0, 0, 0.45);
   border: 1px solid rgba(255, 255, 255, 0.3);
   color: #4fc08d;
@@ -1533,6 +1576,13 @@ onUnmounted(() => {
   transition: transform 0.1s, opacity 0.2s;
 }
 .btn:active { transform: scale(0.97); }
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+  filter: grayscale(0.2);
+}
 
 .btn-primary {
   background: #4fc08d;

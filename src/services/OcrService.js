@@ -164,18 +164,38 @@ class OcrServiceClass {
       for (let y = 0; y < h; y++) {
         let rowSum = 0;
         const rowStart = y * w * 4;
-        for (let x = 0; x < w; x += 8) {
+        let transitions = 0;
+        let prevDark = false;
+        let firstDarkX = -1;
+        let lastDarkX = -1;
+
+        for (let x = 0; x < w; x += 4) {
           const idx = rowStart + x * 4;
-          rowSum += (data[idx] * 77 + data[idx + 1] * 150 + data[idx + 2] * 29) >> 8;
+          const lum = (data[idx] * 77 + data[idx + 1] * 150 + data[idx + 2] * 29) >> 8;
+          rowSum += lum;
+          const isDark = lum < 110;
+          if (isDark) {
+            if (firstDarkX === -1) firstDarkX = x;
+            lastDarkX = x;
+          }
+          if (isDark !== prevDark) {
+            transitions++;
+            prevDark = isDark;
+          }
         }
-        const rowAvg = rowSum / (w / 8);
-        const isReverseBanner = rowAvg < 65;
+        const rowAvg = rowSum / (w / 4);
+
+        // Wykrywanie czarnej belki z białym tekstem (np. Suma:0,50zł w Biedronce lub PLN 0.35 w Lidlu)
+        // Belka zajmuje szerokość > 30% wiersza, ma niską średnią jasność, ale mało przejść (transitions < 32), co odróżnia ją od kodu kreskowego
+        const darkSpan = (lastDarkX > firstDarkX) ? (lastDarkX - firstDarkX) : 0;
+        const isReverseBanner = rowAvg < 125 && transitions >= 2 && transitions < 32 && (darkSpan / w) > 0.30;
 
         for (let x = 0; x < w; x++) {
           const i = rowStart + x * 4;
           let gray = (data[i] * 77 + data[i + 1] * 150 + data[i + 2] * 29) >> 8;
 
-          if (isReverseBanner) {
+          // Odwracamy tylko wewnątrz czarnej belki, zachowując białe marginesy paragonu
+          if (isReverseBanner && x >= firstDarkX && x <= lastDarkX) {
             gray = 255 - gray;
           }
 
@@ -243,12 +263,12 @@ class OcrServiceClass {
   normalizeOcrText(text) {
     if (!text) return '';
     return text
-      // Zamiana O/o/D/Q przed kropką/przecinkiem na 0 (np. O.35 -> 0.35, O. 33 -> 0.33)
-      .replace(/\b[OoQqDd][,\.]\s*(\d{1,2})\b/g, '0.$1')
+      // Zamiana O/o/D/Q przed kropką/przecinkiem na 0 (np. O.35 -> 0.35, Suma:O,50 -> Suma:0.50)
+      .replace(/([:=]|\b)[OoQqDd][,\.]\s*(\d{1,2})\b/g, '$1 0.$2')
       // Zamiana literówki PLA na PLN
       .replace(/\bPLA\b/g, 'PLN')
-      // Likwidacja spacji wewnątrz kwoty (np. 0. 35 -> 0.35)
-      .replace(/(\d+)[,\.]\s+(\d{2})\b/g, '$1.$2');
+      // Likwidacja spacji wewnątrz kwoty (np. 0. 35 -> 0.35, 0 , 50 -> 0.50)
+      .replace(/(\d+)\s*[,\.]\s*(\d{2})\b/g, '$1.$2');
   }
 
   /**
@@ -277,7 +297,11 @@ class OcrServiceClass {
       lower.includes('7791011327') || 
       lower.includes('biedronka') || 
       lower.includes('jeronimo') || 
-      lower.includes('martins')
+      lower.includes('martins') ||
+      lower.includes('kostrzyn') ||
+      lower.includes('żniwna') ||
+      lower.includes('zniwna') ||
+      lower.includes('codziennie niskie ceny')
     ) {
       return 'Biedronka';
     }
@@ -313,7 +337,7 @@ class OcrServiceClass {
     if (!text) return null;
     const norm = this.normalizeOcrText(text);
 
-    // Pattern 1: Słowo kluczowe + kwota (np. SUMA, SUMA RABATU, RAZEM, KAUCJA, ZWROT)
+    // Pattern 1: Słowo kluczowe + kwota (np. SUMA, SUMA:0,50zł, SUMA RABATU, RAZEM, KAUCJA, ZWROT)
     const keywordRegex = /(?:suma\s*rabatu|suma|razem|kaucja|zwrot|wyp[łl]at[ay]|warto[sś][cć]|kwota|do\s*zap[łl]aty)\s*[:=]?\s*[\r\n\s]*(\d{1,3}[,\.]\d{2})/i;
     const match1 = norm.match(keywordRegex);
     if (match1 && match1[1]) {
@@ -321,8 +345,8 @@ class OcrServiceClass {
       if (!isNaN(val) && val > 0) return val;
     }
 
-    // Pattern 2: Pozycja ze sztukami (np. "7x Butelka plastikowa 0.35")
-    const itemRegex = /\d+\s*[xX]\s+[^\d\n]+[\s\t]+(\d{1,2}[,\.]\d{2})/i;
+    // Pattern 2: Pozycja z kaucją / butelką (np. "1 x Butelka plastikowa 0.50zl 0,50zl" lub "7x Butelka plastikowa 0.35")
+    const itemRegex = /(?:butelk[ai]|puszk[ai]|plastikowa|szklana|[0-9]+\s*[xX]\s+[^\n]+?)[\s\t]+(\d{1,2}[,\.]\d{2})\s*(?:z[łl]|pln)?/i;
     const matchItem = norm.match(itemRegex);
     if (matchItem && matchItem[1]) {
       const val = parseFloat(matchItem[1].replace(',', '.'));
@@ -360,22 +384,36 @@ class OcrServiceClass {
     const lines = text.split('\n');
     for (const line of lines) {
       const cleaned = line.trim().replace(/[()\s\-_]/g, '');
-      if (cleaned.length < 13) continue;
+      if (cleaned.length < 11) continue;
 
       const candidate = cleaned
         .replace(/[OoQqDd]/g, '0')
-        .replace(/[Iil|]/g, '1')
-        .replace(/B/g, '8');
+        .replace(/[Iil|!]/g, '1')
+        .replace(/[B]/g, '8')
+        .replace(/[S]/g, '5')
+        .replace(/[Z]/g, '2');
 
-      if (/^9841\d{24}$/.test(candidate)) return candidate;
-      if (/^2010\d{20}$/.test(candidate)) return candidate;
-      if (/^200\d{16}$/.test(candidate)) return candidate;
-      if (/^9[89]\d{11}$/.test(candidate)) return candidate;
-      if (/^20\d{11}$/.test(candidate)) return candidate;
+      const mBiedronka = candidate.match(/9841\d{24}/);
+      if (mBiedronka) return mBiedronka[0];
+      const mLidl24 = candidate.match(/2010\d{20}/);
+      if (mLidl24) return mLidl24[0];
+      const mLidl19 = candidate.match(/200\d{16}/);
+      if (mLidl19) return mLidl19[0];
+      const mEan13 = candidate.match(/9[89]\d{11}/);
+      if (mEan13) return mEan13[0];
+      const mLidl13 = candidate.match(/20\d{11}/);
+      if (mLidl13) return mLidl13[0];
     }
 
     // Krok 2: Przeszukaj ciągły tekst bez ogranicznika \b
-    const cleanAll = text.replace(/[()\s\-_]/g, '').replace(/[Oo]/g, '0').replace(/[Il]/g, '1');
+    const cleanAll = text
+      .replace(/[()\s\-_]/g, '')
+      .replace(/[OoQqDd]/g, '0')
+      .replace(/[Iil|!]/g, '1')
+      .replace(/[B]/g, '8')
+      .replace(/[S]/g, '5')
+      .replace(/[Z]/g, '2');
+
     const m1 = cleanAll.match(/9841\d{24}/);
     if (m1) return m1[0];
     const m2 = cleanAll.match(/2010\d{20}/);
@@ -392,7 +430,7 @@ class OcrServiceClass {
 
   /**
    * Wykrywa datę wydruku i termin ważności (+30 dni lub podany bezpośrednio).
-   * Obsługuje m.in. format Lidla: HH:MM:SS DD-MMM-YYYY (np. 17:06:52 16-LUT-2026)
+   * Obsługuje formaty ISO (YYYY-MM-DD) z Biedronki oraz formaty Lidla (DD-MMM-YYYY, DD.MM.YYYY).
    */
   extractDates(text) {
     if (!text) return { print_date: null, expiration_date: null };
@@ -423,68 +461,81 @@ class OcrServiceClass {
     let printDateStr = null;
     let expDateStr = null;
 
-    // 1. Bezpośredni termin ważności z tekstu (np. "termin waznosci: 19.10.2026" lub "ważny do 19-10-2026")
-    const expRegex = /(?:termin\s*wa[żz]no[sś]ci|wa[żz]n[yae]\s*do|wa[żz]no[sś][cć]|do\s*dnia)\s*[:=]?\s*(\d{2}[\.\-\/]\d{2}[\.\-\/]\d{4})/i;
+    // 1. Bezpośredni termin ważności z tekstu (np. "Do wykorzystania do dnia:\n2026-10-20", "termin waznosci: 2026-10-20", "ważny do 19.10.2026")
+    const expRegex = /(?:do\s*wykorzystania(?:\s*do\s*dnia)?|termin\s*wa[żz]no[sś]ci|wa[żz]n[yae]\s*do|wa[żz]no[sś][cć]|do\s*dnia)\s*[:=]?\s*[\r\n\s]*(\d{4}[\.\-\/]\d{1,2}[\.\-\/]\d{1,2}|\d{1,2}[\.\-\/]\d{1,2}[\.\-\/]\d{4})/i;
     const matchExp = text.match(expRegex);
     if (matchExp && matchExp[1]) {
       expDateStr = this.normalizeDate(matchExp[1]);
     }
 
-    // 2. Format ze słownym skrótem miesiąca (np. Tomra / Lidl: "18:33:58 12-GRU-2025" lub "12-GRU-?")
-    const textMonthRegex = /(\d{1,2})[\.\-\/\s]([A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż0-9]{3,12})[\.\-\/\s](\d{4}|\d{2}|\?+)/gi;
-    const textMatches = [...text.matchAll(textMonthRegex)];
-    for (const match of textMatches) {
-      const day = parseInt(match[1], 10);
-      if (day < 1 || day > 31) continue;
-
-      const rawMonth = match[2].toUpperCase()
-        .replace(/Ą/g, 'A').replace(/Ć/g, 'C').replace(/Ę/g, 'E')
-        .replace(/Ł/g, 'L').replace(/Ń/g, 'N').replace(/Ó/g, 'O')
-        .replace(/Ś/g, 'S').replace(/Ź/g, 'Z').replace(/Ż/g, 'Z');
-      
-      const month = MONTH_MAP[rawMonth] !== undefined ? MONTH_MAP[rawMonth] : MONTH_MAP[rawMonth.slice(0, 3)];
-      if (month !== undefined) {
-        let year;
-        if (match[3] && /^\d{4}$/.test(match[3])) {
-          year = parseInt(match[3], 10);
-        } else if (match[3] && /^\d{2}$/.test(match[3])) {
-          year = 2000 + parseInt(match[3], 10);
-        } else {
-          // Rok nieczytelny (np. "?") - wywnioskuj z bieżącego roku
-          const currentYear = new Date().getFullYear();
-          year = currentYear;
-          // Jeśli ten miesiąc był w przyszłości w stosunku do bieżącego, to paragon jest z zeszłego roku
-          if (month > new Date().getMonth()) {
-            year = currentYear - 1;
-          }
-        }
-
-        const d = new Date(Date.UTC(year, month, day));
-        if (!isNaN(d.getTime())) {
-          printDateStr = d.toISOString().split('T')[0];
-          if (!expDateStr) {
-            const exp = new Date(Date.UTC(year, month, day));
-            exp.setUTCDate(exp.getUTCDate() + 30);
-            expDateStr = exp.toISOString().split('T')[0];
-          }
-          break;
+    // 2. Data wydruku z tekstu (np. "DATA WYDRUKU: 2026-09-20 13:20" lub "data wystawienia: 20.09.2026")
+    const printRegex = /(?:data\s*(?:wydruku|wystawienia)?)\s*[:=]?\s*[\r\n\s]*(\d{4}[\.\-\/]\d{1,2}[\.\-\/]\d{1,2}|\d{1,2}[\.\-\/]\d{1,2}[\.\-\/]\d{4})/i;
+    const matchPrint = text.match(printRegex);
+    if (matchPrint && matchPrint[1]) {
+      printDateStr = this.normalizeDate(matchPrint[1]);
+      // Jeśli nie było bezpośredniej daty ważności, wylicz dokładnie 30 dni od wydruku
+      if (!expDateStr) {
+        const parts = printDateStr.split('-');
+        if (parts.length === 3) {
+          const pDate = new Date(Date.UTC(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)));
+          pDate.setUTCDate(pDate.getUTCDate() + 30);
+          expDateStr = pDate.toISOString().split('T')[0];
         }
       }
     }
 
-    // 3. Zwykły format numeryczny DD.MM.YYYY, DD-MM-YYYY, DD/MM/YYYY
+    // 3. Format ze słownym skrótem miesiąca (np. Tomra / Lidl: "18:33:58 12-GRU-2025" lub "12-GRU-?")
+    if (!printDateStr || !expDateStr) {
+      const textMonthRegex = /(\d{1,2})[\.\-\/\s]([A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż0-9]{3,12})[\.\-\/\s](\d{4}|\d{2}|\?+)/gi;
+      const textMatches = [...text.matchAll(textMonthRegex)];
+      for (const match of textMatches) {
+        const day = parseInt(match[1], 10);
+        if (day < 1 || day > 31) continue;
+
+        const rawMonth = match[2].toUpperCase()
+          .replace(/Ą/g, 'A').replace(/Ć/g, 'C').replace(/Ę/g, 'E')
+          .replace(/Ł/g, 'L').replace(/Ń/g, 'N').replace(/Ó/g, 'O')
+          .replace(/Ś/g, 'S').replace(/Ź/g, 'Z').replace(/Ż/g, 'Z');
+        
+        const month = MONTH_MAP[rawMonth] !== undefined ? MONTH_MAP[rawMonth] : MONTH_MAP[rawMonth.slice(0, 3)];
+        if (month !== undefined) {
+          let year;
+          if (match[3] && /^\d{4}$/.test(match[3])) {
+            year = parseInt(match[3], 10);
+          } else if (match[3] && /^\d{2}$/.test(match[3])) {
+            year = 2000 + parseInt(match[3], 10);
+          } else {
+            const currentYear = new Date().getFullYear();
+            year = currentYear;
+            if (month > new Date().getMonth()) {
+              year = currentYear - 1;
+            }
+          }
+
+          const d = new Date(Date.UTC(year, month, day));
+          if (!isNaN(d.getTime())) {
+            if (!printDateStr) printDateStr = d.toISOString().split('T')[0];
+            if (!expDateStr) {
+              const exp = new Date(Date.UTC(year, month, day));
+              exp.setUTCDate(exp.getUTCDate() + 30);
+              expDateStr = exp.toISOString().split('T')[0];
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    // 4. Zwykły format numeryczny jeśli data nadal nie została wykryta
     if (!printDateStr) {
-      const dateRegex = /(?:data\s*(?:wydruku|wystawienia)?\s*[:=]?\s*)?(\d{2})[\.\-\/](\d{2})[\.\-\/](\d{4})/i;
+      const dateRegex = /(?:data\s*(?:wydruku|wystawienia)?\s*[:=]?\s*)?(\d{4}[\.\-\/]\d{1,2}[\.\-\/]\d{1,2}|\d{1,2}[\.\-\/]\d{1,2}[\.\-\/]\d{4})/i;
       const matchDate = text.match(dateRegex);
       if (matchDate) {
-        const day = parseInt(matchDate[1], 10);
-        const month = parseInt(matchDate[2], 10) - 1;
-        const year = parseInt(matchDate[3], 10);
-        const d = new Date(Date.UTC(year, month, day));
-        if (!isNaN(d.getTime())) {
-          printDateStr = d.toISOString().split('T')[0];
-          if (!expDateStr) {
-            const exp = new Date(Date.UTC(year, month, day));
+        printDateStr = this.normalizeDate(matchDate[1]);
+        if (!expDateStr && printDateStr) {
+          const parts = printDateStr.split('-');
+          if (parts.length === 3) {
+            const exp = new Date(Date.UTC(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)));
             exp.setUTCDate(exp.getUTCDate() + 30);
             expDateStr = exp.toISOString().split('T')[0];
           }
@@ -499,11 +550,15 @@ class OcrServiceClass {
   }
 
   normalizeDate(dateStr) {
-    const parts = dateStr.split(/[\.\-\/]/);
+    if (!dateStr) return null;
+    const clean = dateStr.trim().replace(/[,\s]/g, '');
+    const parts = clean.split(/[\.\-\/]/);
     if (parts.length === 3) {
       if (parts[0].length === 4) {
+        // Format ISO: YYYY-MM-DD
         return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
       } else {
+        // Format Europejski: DD-MM-YYYY
         return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
       }
     }

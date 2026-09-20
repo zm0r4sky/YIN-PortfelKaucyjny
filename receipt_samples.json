@@ -6,7 +6,7 @@
   "patterns": {
     "biedronka_rvm_code128_28": {
       "name": "Biedronka Recyklomat (Code 128 - 28 cyfr)",
-      "regex": "^9841(?<storeId>\\d{5})(?<terminalId>\\d{4})(?<timestamp>\\d{9})(?<currencyFlag>\\d{1})(?<amountGrosze>\\d{5})$",
+      "regex": "^9841(?<storeId>\\d{5})(?<terminalId>\\d{4})(?<timestamp>\\d{10})(?<amountUnits>\\d{4})(?<checkDigit>\\d{1})$",
       "fields": {
         "prefix": {
           "indices": [0, 4],
@@ -15,28 +15,28 @@
         },
         "storeId": {
           "indices": [4, 9],
-          "example": "01614",
-          "description": "5-cyfrowy identyfikator sklepu (np. Biedronka nr 1614)"
+          "example": "24327",
+          "description": "5-cyfrowy identyfikator sklepu (np. Biedronka nr 01614 lub 24327 Zielonka)"
         },
         "terminalId": {
           "indices": [9, 13],
-          "example": "5531",
-          "description": "Identyfikator recyklomatu / kasy lub numer transakcji"
+          "example": "2171",
+          "description": "Identyfikator recyklomatu / kasy lub numer transakcji (np. 5531 lub 2171)"
         },
         "timestamp": {
-          "indices": [13, 22],
-          "example": "178982337",
-          "description": "9-cyfrowy Unix Timestamp z dokładnością do 10 sekund (1789823370 = 2026-09-19 13:09 UTC / 14:09 CET)"
+          "indices": [13, 23],
+          "example": "1789906816",
+          "description": "10-cyfrowy Unix Timestamp z dokładnością do 1 sekundy (np. 1789906816 = 2026-09-20 12:20:16 UTC)"
         },
-        "currencyFlag": {
-          "indices": [22, 23],
-          "example": "1",
-          "description": "Flaga waluty lub operacji (1 = PLN / kaucja butelkowa)"
+        "amountUnits": {
+          "indices": [23, 27],
+          "example": "0005",
+          "description": "Wartość kaucji w jednostkach 10 groszy (0.10 zł). 0005 = 5 * 0.10 zł = 0.50 zł; 0065 = 65 * 0.10 zł = 6.50 zł"
         },
-        "amountGrosze": {
-          "indices": [23, 28],
-          "example": "00650",
-          "description": "Wartość kaucji w groszach (00650 = 650 groszy = 6.50 PLN)"
+        "checkDigit": {
+          "indices": [27, 28],
+          "example": "5",
+          "description": "Cyfra kontrolna GS1 Modulo 10 wyliczana z pierwszych 27 cyfr z wagami naprzemiennymi 3 i 1 (od prawej do lewej)"
         }
       }
     },
@@ -111,29 +111,132 @@
       "barcode_length": 28,
       "retailer": "Biedronka",
       "amount_pln": 6.50,
-      "amount_grosze": 650,
       "items_breakdown": {
         "plastic_bottles_50gr": 5,
         "cans_50gr": 8,
         "glass_bottles_100gr": 0,
         "total_units": 13
       },
-      "print_datetime": "2026-09-19T14:09:00",
+      "print_datetime": "2026-09-19T13:09:31Z",
       "expiration_date": "2026-10-19",
       "validity_days": 30,
       "decoded_fields": {
         "prefix": "9841",
         "store_id": "01614",
         "terminal_id": "5531",
-        "unix_timestamp_raw": "178982337",
-        "unix_timestamp_seconds": 1789823370,
-        "decoded_datetime_utc": "2026-09-19T13:09:30Z",
-        "currency_flag": "1",
-        "amount_grosze_raw": "00650",
-        "computed_amount_pln": 6.50
+        "unix_timestamp": 1789823371,
+        "decoded_datetime_utc": "2026-09-19T13:09:31Z",
+        "amount_units_raw": "0065",
+        "computed_amount_pln": 6.50,
+        "check_digit": "0",
+        "check_digit_valid": true
       },
       "verification_status": "VERIFIED_100_PERCENT",
-      "notes": "Pewny wzorzec Biedronka: ostatnie 5 cyfr to kwota w groszach, 9 cyfr na pozycjach 13-22 to Unix Timestamp wydruku."
+      "notes": "Paragon Biedronka: pełny Unix timestamp 10-cyfrowy (1789823371), kwota w jednostkach 10 gr (0065 = 6.50 zł), ostatnia cyfra to cyfra kontrolna GS1 Modulo 10 (0 = poprawna)."
+    },
+    {
+      "id": "SAMPLE-BIEDRONKA-002",
+      "barcode": "9841243272171178990681600055",
+      "barcode_format": "Code 128",
+      "barcode_length": 28,
+      "retailer": "Biedronka",
+      "store_name": "Biedronka, ul. Paderewskiego 1, Zielonka 05-220",
+      "amount_pln": 0.50,
+      "items": "1x Butelka kaucyjna (0.50 zł)",
+      "print_datetime": "2026-09-20T12:20:16Z",
+      "expiration_date": "2026-10-20",
+      "validity_days": 30,
+      "decoded_fields": {
+        "prefix": "9841",
+        "store_id": "24327",
+        "terminal_id": "2171",
+        "unix_timestamp": 1789906816,
+        "decoded_datetime_utc": "2026-09-20T12:20:16Z",
+        "amount_units_raw": "0005",
+        "computed_amount_pln": 0.50,
+        "check_digit": "5",
+        "check_digit_valid": true
+      },
+      "verification_status": "VERIFIED_100_PERCENT",
+      "notes": "Paragon Zielonka: sekundy 16, kwota 0005 = 0.50 zł, cyfra kontrolna GS1 Modulo 10 = 5."
+    },
+    {
+      "id": "SAMPLE-BIEDRONKA-003",
+      "barcode": "9841243272171178990682700051",
+      "barcode_format": "Code 128",
+      "barcode_length": 28,
+      "retailer": "Biedronka",
+      "store_name": "Biedronka, ul. Paderewskiego 1, Zielonka 05-220",
+      "amount_pln": 0.50,
+      "items": "1x Butelka kaucyjna (0.50 zł)",
+      "print_datetime": "2026-09-20T12:20:27Z",
+      "expiration_date": "2026-10-20",
+      "validity_days": 30,
+      "decoded_fields": {
+        "prefix": "9841",
+        "store_id": "24327",
+        "terminal_id": "2171",
+        "unix_timestamp": 1789906827,
+        "decoded_datetime_utc": "2026-09-20T12:20:27Z",
+        "amount_units_raw": "0005",
+        "computed_amount_pln": 0.50,
+        "check_digit": "1",
+        "check_digit_valid": true
+      },
+      "verification_status": "VERIFIED_100_PERCENT",
+      "notes": "Paragon Zielonka: 11 sekund później (sekundy 27), kwota 0005 = 0.50 zł, cyfra kontrolna = 1."
+    },
+    {
+      "id": "SAMPLE-BIEDRONKA-004",
+      "barcode": "9841243272171178990683800057",
+      "barcode_format": "Code 128",
+      "barcode_length": 28,
+      "retailer": "Biedronka",
+      "store_name": "Biedronka, ul. Paderewskiego 1, Zielonka 05-220",
+      "amount_pln": 0.50,
+      "items": "1x Butelka kaucyjna (0.50 zł)",
+      "print_datetime": "2026-09-20T12:20:38Z",
+      "expiration_date": "2026-10-20",
+      "validity_days": 30,
+      "decoded_fields": {
+        "prefix": "9841",
+        "store_id": "24327",
+        "terminal_id": "2171",
+        "unix_timestamp": 1789906838,
+        "decoded_datetime_utc": "2026-09-20T12:20:38Z",
+        "amount_units_raw": "0005",
+        "computed_amount_pln": 0.50,
+        "check_digit": "7",
+        "check_digit_valid": true
+      },
+      "verification_status": "VERIFIED_100_PERCENT",
+      "notes": "Paragon Zielonka: 11 sekund później (sekundy 38), kwota 0005 = 0.50 zł, cyfra kontrolna = 7."
+    },
+    {
+      "id": "SAMPLE-BIEDRONKA-005",
+      "barcode": "9841243272171178990684700059",
+      "barcode_format": "Code 128",
+      "barcode_length": 28,
+      "retailer": "Biedronka",
+      "store_name": "Biedronka, ul. Paderewskiego 1, Zielonka 05-220",
+      "amount_pln": 0.50,
+      "items": "1x Butelka kaucyjna (0.50 zł)",
+      "print_datetime": "2026-09-20T12:20:47Z",
+      "expiration_date": "2026-10-20",
+      "validity_days": 30,
+      "decoded_fields": {
+        "prefix": "9841",
+        "store_id": "24327",
+        "terminal_id": "2171",
+        "unix_timestamp": 1789906847,
+        "decoded_datetime_utc": "2026-09-20T12:20:47Z",
+        "amount_units_raw": "0005",
+        "computed_amount_pln": 0.50,
+        "check_digit": "9",
+        "check_digit_valid": true
+      },
+      "verification_status": "VERIFIED_100_PERCENT",
+      "notes": "Paragon Zielonka: 9 sekund później (sekundy 47), kwota 0005 = 0.50 zł, cyfra kontrolna = 9."
     },
     {
       "id": "SAMPLE-LIDL-001",

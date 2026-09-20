@@ -13,5 +13,7 @@
 201000002001001245207399 Lidl 2 butelki kaucyjnych razem 1 pln data 17-01-2026 14:16:06
 201000002020501016115136 Lidl 41 butelek kaucyjnyych 20:50 łączeni data marzen-2026
 2001241104681000010 Lidl 1x Butelka bez kacuji 0.10 Data 14:09:59 10-WRZ-2025
-
-
+9841243272171178990684700059 Biedronka 1x butelka kaucja 0.50 zł data 20-09-2026 ul. Paderewskiego 1, Zielonka 05-220
+9841243272171178990681600055 Biedronka 1x butelka kaucja 0.50 zł data 20-09-2026 ul. Paderewskiego 1, Zielonka 05-220
+9841243272171178990683800057 Biedronka 1x butelka kaucja 0.50 zł data 20-09-2026 ul. Paderewskiego 1, Zielonka 05-220
+9841243272171178990682700051 Biedronka 1x butelka kaucja 0.50 zł data 20-09-2026 ul. Paderewskiego 1, Zielonka 05-220

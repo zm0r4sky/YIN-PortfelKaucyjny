@@ -56,6 +56,10 @@ Budowa autonomicznej aplikacji działającej lokalnie w przeglądarce, z wykorzy
   - Skrócenie wysokości okien dialogowych (`max-height: min(78dvh, 560px)`), redukcja marginesów wewnętrznych oraz dodanie dolnego marginesu bezpieczeństwa overlayu (`padding-bottom: 95px`), co gwarantuje pełną widoczność przycisku "Anuluj" bez wchodzenia pod dolną belkę nawigacji na dowolnym telefonie.
   - Dodanie stałego przycisku zamknięcia `✕` (`.modal-close-btn`) w prawym górnym rogu każdego modala ułatwiającego natychmiastowe wyjście jednym dotknięciem.
   - Wdrożenie kontrastowego, czerwonego przycisku `.btn-cancel` dla szybkiej rezygnacji z zapisu.
+- [x] Całkowita blokada przewijania poziomego (overflow-x) w oknach modalnych i formularzach:
+  - Wdrożenie globalnego `box-sizing: border-box` oraz `overflow-x: hidden` na poziomie `html`, `body` i wszystkich nakładek modalnych.
+  - Zabezpieczenie wszystkich kontenerów dialogowych (`.save-modal`, `.cashier-modal`, `.edit-modal`, `.delete-modal`) przed poziomym scrollem (`overflow-x: hidden`).
+  - Wdrożenie zawijania długich ciągów znaków (`word-break: break-word` / `overflow-wrap: anywhere`), w tym numerów kodów kreskowych, bloków tekstu OCR (`pre`), tagów i pól formularzy, gwarantujące czytelne wyświetlanie całej treści na dowolnej szerokości ekranu.
 
 ### Etap 1.5: Rozpoznawanie Danych (OCR) - ZADANIE DODATKOWE
 - [x] Integracja `Tesseract.js` (wsparcie języka polskiego i angielskiego z lazy workerem).
@@ -78,10 +82,22 @@ Budowa autonomicznej aplikacji działającej lokalnie w przeglądarce, z wykorzy
   - Automatyczne kadrowanie obszaru paragonu (Auto-crop ROI) odcinające ciemne tło automatu recyklingowego.
   - Inwersja negatywowa czarnych belek nagłówkowych z białym drukiem (np. `PLN 0.35`).
   - Rozszerzenie słowników OCR o adresy lokalne i linie paragonowe (Braniborska, Wrocław, Tomra 90, `7x Butelka plastikowa 0.35`).
-- [x] Podwójna weryfikacja kodu i eliminacja nawiasów GS1:
-  - Całkowite oczyszczanie kodu z nawiasów identyfikatorów GS1 AI (np. `(20)01(94)...` -> `200194...`) na poziomie dekodera `BarcodeScannerService` i `BarcodeParserService`, uniemożliwiające zapisanie zniekształconego kodu do bazy.
-  - Odporny ekstraktor numeru kodu kreskowego z tekstu OCR (`extractBarcode`) przeszukujący wiersze i ciągły strumień tekstu z uwzględnieniem typowych pomyłek optycznych (O->0, I->1, B->8).
-  - Mechanizm podwójnej weryfikacji (Dual Verification: Skaner 1D + OCR): w przypadku zgodności obu źródeł wyświetlana jest zielona odznaka `✓✓ Podwójna weryfikacja (Skaner + OCR 100% zgodne)`, a w razie braku odczytu paskowego kod jest automatycznie odzyskiwany z tekstu OCR.
+- [x] Blokada zapisu podczas analizy OCR i interfejs oczekiwania:
+  - Blokada kliknięcia przycisków zapisu (`:disabled="isOcrRunning"`) oraz asynchroniczny strażnik w `confirmSave()`.
+  - Dynamiczna zmiana etykiet przycisków w modalu na `⏳ Jeszcze chwila...` oraz `⏳ Ładowanie...` na czas pracy OCR.
+  - Dodanie wizualnych stylów dla stanu zablokowanego `.btn:disabled` (opacity, brak cieni, cursor: not-allowed).
+- [x] Pełna inżynieria odwrotna kodów Biedronki (28 cyfr, Code 128) i cyfry kontrolnej GS1 Modulo 10:
+  - Rozkodowanie struktury 28-cyfrowej: prefiks (4c), ID sklepu (5c), ID terminala (4c), 10-cyfrowy znacznik czasu Unix timestamp z sekundową dokładnością (10c), kwota w jednostkach 10 groszy (4c) oraz 28. cyfra jako suma kontrolna GS1 Modulo 10 (1c).
+  - Odkrycie i wdrożenie algorytmu sumy kontrolnej GS1 Modulo 10 z wagami 3 i 1 naprzemiennie od prawej do lewej (100% zgodności ze wszystkimi 5 zweryfikowanymi paragonami z Biedronki).
+  - Wdrożenie metod `calculateBiedronkaCheckDigit()` i `validateBiedronkaCheckDigit()` w `BarcodeParserService.js`.
+  - Wzbogacenie bazy próbek `smaples_to_analize.txt` i `receipt_samples.json` o 4 nowe rzeczywiste paragony z Biedronki (Zielonka, 20-09-2026).
+  - Wyświetlanie wskaźnika `✓ Suma GS1 OK` w oknie podglądu kodu.
+- [x] Kalibracja silnika OCR pod kątem fizycznych paragonów Biedronki:
+  - Rozpoznawanie dat w formacie ISO `YYYY-MM-DD` (Biedronka: `DATA WYDRUKU: 2026-09-20 13:20` oraz `Do wykorzystania do dnia:\n2026-10-20`).
+  - Udoskonalenie inwersji czarnej belki `[ Suma:0,50zł ]`: precyzyjna detekcja ciemnego pasma poziomego z białym tekstem bez inwersji marginesów papieru i pasków kodu kreskowego (ochrona przed zniekształceniem kodu przy zachowaniu kontrastu napisu Suma).
+  - Wzbogacenie słownika detekcji sieci Biedronka o dane adresowe spółki: `Kostrzyn`, `ul. Żniwna 5`, `Codziennie niskie ceny`.
+  - Elastyczne wykrywanie kwoty kaucji z linii asortymentowej `1 x Butelka plastikowa 0.50zl  0,50zl` oraz bloku `Suma:0,50zł`.
+  - Wzmocnienie ekstraktora 28-cyfrowego kodu kreskowego z tekstu OCR (`extractBarcode`) o zamiany literówkowe cyfr (S->5, Z->2, !->1, B->8).
 
 ---
 

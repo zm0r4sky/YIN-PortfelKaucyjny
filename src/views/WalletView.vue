@@ -897,6 +897,8 @@ onMounted(() => {
   padding: 16px 16px 95px 16px;
   z-index: 25000;
   box-sizing: border-box;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 .modal-close-btn {
@@ -932,11 +934,15 @@ onMounted(() => {
   max-width: 420px;
   max-height: min(78dvh, 580px);
   overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
   border-radius: 20px;
-  padding: 20px 20px 24px;
+  padding: 20px 18px 24px;
   text-align: center;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .cashier-amount {
@@ -963,6 +969,9 @@ onMounted(() => {
   border: 2px dashed #cbd5e1;
   border-radius: 16px;
   margin-bottom: 24px;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  max-width: 100%;
 }
 
 .generated-barcode-img {
@@ -978,9 +987,13 @@ onMounted(() => {
   font-family: monospace;
   font-size: 1.1rem;
   font-weight: 800;
-  letter-spacing: 2px;
+  letter-spacing: 1px;
   color: #0f172a;
   word-break: break-all;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .cashier-actions {
@@ -995,9 +1008,13 @@ onMounted(() => {
   max-width: 400px;
   max-height: min(78dvh, 560px);
   overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
   border-radius: 20px;
-  padding: 20px 20px 24px;
+  padding: 20px 18px 24px;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .modal-select, .modal-input {
@@ -1059,12 +1076,16 @@ onMounted(() => {
   max-width: 380px;
   max-height: min(78dvh, 540px);
   overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
   background: #ffffff;
   border-radius: 20px;
-  padding: 20px 20px 24px;
+  padding: 20px 18px 24px;
   text-align: center;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .delete-icon {
