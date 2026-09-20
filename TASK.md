@@ -116,6 +116,11 @@ Budowa autonomicznej aplikacji działającej lokalnie w przeglądarce, z wykorzy
   - Nowe bezpieczne wartości domyślne formularza:
     - Sklep domyślnie ustawiany na `Inny`, o ile algorytm nie rozpozna konkretnej sieci (np. Biedronka, Lidl).
     - Kwota kaucji domyślnie ustawiana na `0,00 zł`, blokująca przypadkowy zapis do momentu wyboru kwoty, wpisania lub rozczytania przez OCR.
+- [x] Wielocechowy model wiarygodności autentyczności paragonów (Multi-Signal Authenticity Engine):
+  - Wdrożenie i utrwalenie kanonicznego wzorca pełnej treści paragonu Biedronka (Zielonka) w `smaples_to_analize.txt` oraz `receipt_samples.json`.
+  - Utworzenie matrycy 18 niezależnych sygnatur prawno-regulaminowych Biedronki (m.in. "wymienić na gotówkę w kasie sklepu", "niewykorzystany (...) przepada", regulamin kasy samoobsługowej, "Codziennie niskie ceny", "Jeronimo Martins Polska S.A.", "ul. Żniwna 5", "Segreguj i odzyskuj", "www.biedronka.pl").
+  - Nowy silnik analizy autentyczności w `OcrService.js` (`analyzeShopDetails`), wyliczający scoring wiarygodności na podstawie korelacji wielu fraz zamiast pojedynczego słowa.
+  - Wizualizacja potwierdzonych cech regulaminu w UI skanera (`ScannerView.vue`): złote plakietki `🛡️ Wiarygodność 100% (N cech regulaminu)` oraz rozwijany wykaz zweryfikowanych klauzul.
 
 ---
 

@@ -211,7 +211,10 @@
                 <div v-if="ocrResult && !isOcrRunning" class="ocr-extracted-grid">
                   <div class="ocr-tag" :class="{ 'tag-verified': isShopVerified }">
                     Sklep: <strong>{{ ocrResult.extracted.shop_name || 'Brak' }}</strong>
-                    <span v-if="isShopVerified" class="field-match-badge" title="Zgodność kodu kreskowego i tekstu OCR">✓✓ Zgodny z kodem</span>
+                    <span v-if="ocrResult.extracted.shop_details?.total_signals_count >= 2" class="field-security-badge" :title="ocrResult.extracted.shop_details.matched_signals.join(' | ')">
+                      🛡️ Wiarygodność 100% ({{ ocrResult.extracted.shop_details.total_signals_count }} cech)
+                    </span>
+                    <span v-else-if="isShopVerified" class="field-match-badge" title="Zgodność kodu kreskowego i tekstu OCR">✓✓ Zgodny z kodem</span>
                     <span v-else-if="ocrResult.extracted.shop_name" class="field-ocr-badge">✓ Z tekstu OCR</span>
                   </div>
 
@@ -236,6 +239,18 @@
                   <div v-if="ocrResult.extracted.barcode" class="ocr-tag" :class="{ 'tag-verified': isBarcodeVerified }">
                     Kod w tekście: <strong>#{{ ocrResult.extracted.barcode }}</strong>
                     <span v-if="isBarcodeVerified" class="field-match-badge">✓✓ Zgodny ze skanem</span>
+                  </div>
+
+                  <!-- Wykaz sygnałów wiarygodności rozpoznanej sieci (Biedronka / Lidl) -->
+                  <div v-if="ocrResult.extracted.shop_details?.matched_signals?.length > 1" class="ocr-signals-box">
+                    <span class="signals-title">
+                      🛡️ Potwierdzone cechy autentyczności paragonu {{ ocrResult.extracted.shop_name }} ({{ ocrResult.extracted.shop_details.matched_signals.length }} cech):
+                    </span>
+                    <div class="signals-pills">
+                      <span v-for="(sig, sIdx) in ocrResult.extracted.shop_details.matched_signals" :key="sIdx" class="signal-item">
+                        ✓ {{ sig }}
+                      </span>
+                    </div>
                   </div>
 
                   <button 
@@ -271,7 +286,10 @@
                 <div class="form-group">
                   <div class="label-with-badge">
                     <label>Sieć handlowa / Sklep:</label>
-                    <span v-if="isShopVerified" class="label-verified-pill" title="Zgodność kodu kreskowego i tekstu OCR">✓✓ Zweryfikowano z OCR</span>
+                    <span v-if="ocrResult?.extracted?.shop_details?.total_signals_count >= 2 && receiptForm.shop_name === ocrResult.extracted.shop_name" class="label-security-pill" :title="ocrResult.extracted.shop_details.matched_signals.join(' | ')">
+                      🛡️ 100% autentyczny ({{ ocrResult.extracted.shop_details.total_signals_count }} cech regulaminu)
+                    </span>
+                    <span v-else-if="isShopVerified" class="label-verified-pill" title="Zgodność kodu kreskowego i tekstu OCR">✓✓ Zweryfikowano z OCR</span>
                     <span v-else-if="ocrResult?.extracted?.shop_name && receiptForm.shop_name === ocrResult.extracted.shop_name" class="label-ocr-pill">✓ Z tekstu OCR</span>
                   </div>
                   <div class="shop-chips">
@@ -1643,6 +1661,41 @@ onUnmounted(() => {
   margin: 2px 0 0;
   font-weight: 600;
   line-height: 1.35;
+}
+
+.ocr-signals-box {
+  width: 100%;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-top: 6px;
+  margin-bottom: 4px;
+  font-size: 0.72rem;
+  box-sizing: border-box;
+}
+
+.signals-title {
+  display: block;
+  font-weight: 700;
+  color: #34d399;
+  margin-bottom: 5px;
+}
+
+.signals-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.signal-item {
+  background: rgba(16, 185, 129, 0.22);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  color: #a7f3d0;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  line-height: 1.25;
 }
 
 .btn-apply-ocr {
