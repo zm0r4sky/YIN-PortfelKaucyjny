@@ -62,6 +62,10 @@ Budowa autonomicznej aplikacji działającej lokalnie w przeglądarce, z wykorzy
   - Rozszerzenie bazy rozpoznawania sieci Lidl o NIP (`7811897358`) i adres centrali (`Jankowice`, `Tarnowo Podgórne`).
   - Obsługa etykiet kwot wieloliniowych i sum rabatowych (`SUMA RABATU`).
   - Podgląd przetworzonego filtru obrazu bezpośrednio w interfejsie testowym skanera.
+- [x] Obsługa cyklu życia i powiadomień ratunkowego trybu OCR:
+  - Płynne raportowanie postępu analizy OCR na ekranie skanera (dynamiczny toast z animowanym wskaźnikiem `⏳ Trwa analiza tekstu OCR (X%)...`).
+  - Wyraźny komunikat końcowy, gdy OCR przestał pracować i nie udało mu się nic znaleźć (np. `OCR zakończył pracę: Nie udało się odnaleźć kodu ani danych paragonu...`).
+  - Usunięcie przedwczesnego ukrywania powiadomienia w trakcie trwania procedury OCR.
 
 ---
 

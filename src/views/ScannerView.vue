@@ -50,6 +50,7 @@
         <div class="fallback-row" v-if="!scanResult">
           <button class="btn-fallback" @click="triggerFileInput" :disabled="isAnalyzingPhoto || isOcrRunning">
             <span v-if="isAnalyzingPhoto">⏳ Analizuję zdjęcie...</span>
+            <span v-else-if="isOcrRunning">🔍 Trwa OCR ({{ (ocrProgress * 100).toFixed(0) }}%)...</span>
             <span v-else>📷 Zrób zdjęcie / Wgraj plik</span>
           </button>
         </div>
@@ -299,7 +300,12 @@
       </transition>
       
       <!-- Komunikaty błędów / powiadomienia -->
-      <div v-if="errorMsg && !showSaveDialog && !showDuplicateModal && !showArchivedDuplicateModal" class="error-toast">
+      <div 
+        v-if="errorMsg && !showSaveDialog && !showDuplicateModal && !showArchivedDuplicateModal" 
+        class="error-toast"
+        :class="{ 'toast-info': isOcrRunning }"
+      >
+        <span v-if="isOcrRunning" class="ocr-spinner-icon">⏳</span>
         {{ errorMsg }}
       </div>
     </div>
@@ -567,21 +573,33 @@ const onBarcodeDetected = async (code, sourceFile = null) => {
 };
 
 /**
- * Uruchomienie testowej analizy OCR na pliku
+ * Uruchomienie testowej lub ratunkowej analizy OCR na pliku
  */
 const runOcrTest = async (imageFile) => {
+  const isFallback = !showSaveDialog.value;
   isOcrRunning.value = true;
   ocrProgress.value = 0;
   ocrStatusText.value = 'Inicjalizacja modelu OCR...';
   ocrResult.value = null;
 
+  if (isFallback) {
+    errorMsg.value = 'Nie wykryto kodu kreskowego. Uruchamiam próbę odczytu tekstu OCR...';
+  }
+
   try {
     const result = await OcrService.recognizeReceipt(imageFile, (m) => {
       if (m.status === 'recognizing text') {
-        ocrStatusText.value = `Rozpoznawanie tekstu: ${(m.progress * 100).toFixed(0)}%`;
+        const pct = Math.round(m.progress * 100);
+        ocrStatusText.value = `Rozpoznawanie tekstu: ${pct}%`;
         ocrProgress.value = m.progress;
+        if (isFallback) {
+          errorMsg.value = `Nie wykryto kodu kreskowego. Analizowanie tekstu OCR (${pct}%)...`;
+        }
       } else if (m.status === 'loading tesseract core') {
         ocrStatusText.value = 'Ładowanie jądra Tesseract...';
+        if (isFallback) {
+          errorMsg.value = 'Nie wykryto kodu kreskowego. Ładowanie silnika OCR...';
+        }
       }
     });
 
@@ -595,13 +613,54 @@ const runOcrTest = async (imageFile) => {
     }
     console.log('[ScannerView] OCR Result:', result);
 
-    // Jesli kod kreskowy nie mial wlasnej daty (np. Lidl), a OCR znalazl date na wydruku:
-    if (result?.extracted?.expiration_date && !parsedBarcodeHasDate.value) {
-      receiptForm.expiration_date = result.extracted.expiration_date;
+    if (isFallback) {
+      // 1. Sukces OCR: odnaleziono kod kreskowy w tekście
+      if (result?.extracted?.barcode) {
+        errorMsg.value = '✓ OCR odczytał kod kreskowy z paragonu!';
+        await onBarcodeDetected(result.extracted.barcode, imageFile);
+        applyOcrValues();
+        setTimeout(() => {
+          if (errorMsg.value && errorMsg.value.includes('OCR odczytał')) {
+            errorMsg.value = '';
+          }
+        }, 3000);
+        return;
+      }
+
+      // 2. OCR przestał pracować: informacja o braku znalezisk
+      const hasAnyExtracted = result?.extracted?.shop_name || result?.extracted?.amount || result?.extracted?.expiration_date;
+      if (!hasAnyExtracted) {
+        errorMsg.value = 'OCR zakończył pracę: Nie udało się odnaleźć kodu ani danych paragonu. Upewnij się, że zdjęcie jest ostre i dobrze oświetlone.';
+      } else {
+        const parts = [];
+        if (result.extracted.shop_name) parts.push(`sklep ${result.extracted.shop_name}`);
+        if (result.extracted.amount) parts.push(`kwota ${result.extracted.amount.toFixed(2)} zł`);
+        errorMsg.value = `OCR zakończył pracę: Odczytano częściowo (${parts.join(', ')}), lecz nie wykryto kodu kreskowego. Spróbuj zbliżyć sam kod.`;
+      }
+
+      // Pozostaw komunikat informacyjny widoczny przez 7 sekund
+      setTimeout(() => {
+        if (errorMsg.value && errorMsg.value.includes('OCR zakończył')) {
+          errorMsg.value = '';
+        }
+      }, 7000);
+    } else {
+      // Tryb standardowy (okno zapisu jest już otwarte)
+      if (result?.extracted?.expiration_date && !parsedBarcodeHasDate.value) {
+        receiptForm.expiration_date = result.extracted.expiration_date;
+      }
     }
   } catch (err) {
     console.warn('[ScannerView] OCR error:', err);
     ocrStatusText.value = 'Nie udało się przetworzyć tekstu OCR.';
+    if (isFallback) {
+      errorMsg.value = 'OCR zakończył pracę: Wystąpił błąd podczas analizy obrazu. Spróbuj ponownie.';
+      setTimeout(() => {
+        if (errorMsg.value && errorMsg.value.includes('OCR zakończył')) {
+          errorMsg.value = '';
+        }
+      }, 6000);
+    }
   } finally {
     isOcrRunning.value = false;
   }
@@ -701,12 +760,8 @@ const handleFileUpload = async (event) => {
       await onBarcodeDetected(code, file);
     } catch (err) {
       console.error('Błąd odczytu zdjęcia:', err);
-      // Nawet jeśli kod kreskowy nie został wykryty, spróbujmy uruchomić OCR!
-      errorMsg.value = 'Nie wykryto kodu kreskowego. Uruchamiam próbę odczytu tekstu OCR...';
-      runOcrTest(file);
-      setTimeout(() => {
-        if (errorMsg.value.includes('Nie wykryto')) errorMsg.value = '';
-      }, 5000);
+      // Kod kreskowy nie został wykryty w pierwszym przebiegu - uruchomienie procedury ratunkowej OCR
+      await runOcrTest(file);
     } finally {
       isAnalyzingPhoto.value = false;
       event.target.value = '';
@@ -1404,17 +1459,41 @@ onUnmounted(() => {
 .error-toast {
   position: absolute;
   top: 130px;
-  width: 85%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 88%;
+  max-width: 440px;
   background: rgba(220, 53, 69, 0.95);
   color: white;
-  padding: 12px 18px;
-  border-radius: 12px;
-  font-weight: 500;
-  font-size: 0.9rem;
+  padding: 13px 18px;
+  border-radius: 14px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  line-height: 1.4;
   text-align: center;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 1000;
+  transition: all 0.25s ease;
+}
+
+.error-toast.toast-info {
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(56, 189, 248, 0.55);
+  color: #38bdf8;
+  box-shadow: 0 8px 24px rgba(56, 189, 248, 0.25);
+}
+
+.ocr-spinner-icon {
+  display: inline-block;
+  margin-right: 6px;
+  animation: pulse-spinner 1.2s infinite ease-in-out;
+}
+
+@keyframes pulse-spinner {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.25); opacity: 1; }
 }
 
 .fade-up-enter-active, .fade-up-leave-active { transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
