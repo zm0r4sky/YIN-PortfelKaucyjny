@@ -78,6 +78,10 @@ Budowa autonomicznej aplikacji działającej lokalnie w przeglądarce, z wykorzy
   - Automatyczne kadrowanie obszaru paragonu (Auto-crop ROI) odcinające ciemne tło automatu recyklingowego.
   - Inwersja negatywowa czarnych belek nagłówkowych z białym drukiem (np. `PLN 0.35`).
   - Rozszerzenie słowników OCR o adresy lokalne i linie paragonowe (Braniborska, Wrocław, Tomra 90, `7x Butelka plastikowa 0.35`).
+- [x] Podwójna weryfikacja kodu i eliminacja nawiasów GS1:
+  - Całkowite oczyszczanie kodu z nawiasów identyfikatorów GS1 AI (np. `(20)01(94)...` -> `200194...`) na poziomie dekodera `BarcodeScannerService` i `BarcodeParserService`, uniemożliwiające zapisanie zniekształconego kodu do bazy.
+  - Odporny ekstraktor numeru kodu kreskowego z tekstu OCR (`extractBarcode`) przeszukujący wiersze i ciągły strumień tekstu z uwzględnieniem typowych pomyłek optycznych (O->0, I->1, B->8).
+  - Mechanizm podwójnej weryfikacji (Dual Verification: Skaner 1D + OCR): w przypadku zgodności obu źródeł wyświetlana jest zielona odznaka `✓✓ Podwójna weryfikacja (Skaner + OCR 100% zgodne)`, a w razie braku odczytu paskowego kod jest automatycznie odzyskiwany z tekstu OCR.
 
 ---
 

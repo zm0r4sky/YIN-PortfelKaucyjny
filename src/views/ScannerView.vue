@@ -178,8 +178,14 @@
               <div class="modal-header">
                 <div class="success-icon">✓</div>
                 <h3>Kod Rozpoznany!</h3>
-                <p class="barcode-preview">{{ scanResult }}</p>
-                <div v-if="isAutoParsed" class="auto-detected-badge">
+                <p class="barcode-preview">#{{ scanResult }}</p>
+                <div v-if="isDualVerified" class="dual-verified-badge">
+                  ✓✓ Podwójna weryfikacja (Skaner + OCR 100% zgodne)
+                </div>
+                <div v-else-if="recoveredFromOcr" class="ocr-recovered-badge">
+                  🔍 Kod odzyskany z tekstu OCR
+                </div>
+                <div v-else-if="isAutoParsed" class="auto-detected-badge">
                   ⚡ Dane odczytane automatycznie z kodu
                 </div>
               </div>
@@ -211,6 +217,10 @@
                   </div>
                   <div class="ocr-tag">
                     Ważność: <strong>{{ ocrResult.extracted.expiration_date || 'Brak' }}</strong>
+                  </div>
+                  <div v-if="ocrResult.extracted.barcode" class="ocr-tag">
+                    Kod w tekście: <strong>#{{ ocrResult.extracted.barcode }}</strong>
+                    <span v-if="isDualVerified" class="text-match">✓ Zgodny</span>
                   </div>
                   <button 
                     v-if="ocrResult.extracted.shop_name || ocrResult.extracted.amount || ocrResult.extracted.expiration_date" 
@@ -343,6 +353,8 @@ const engineName = ref('Ładowanie silnika...');
 const localizedBoxStyle = ref(null);
 const showSaveDialog = ref(false);
 const isAutoParsed = ref(false);
+const isDualVerified = ref(false);
+const recoveredFromOcr = ref(false);
 
 // Duplikaty
 const showDuplicateModal = ref(false);
@@ -543,9 +555,10 @@ const computeScreenBoundingBox = (box) => {
 /**
  * Główna obsługa wykrytego kodu z weryfikacją duplikatów
  */
-const onBarcodeDetected = async (code, sourceFile = null) => {
+const onBarcodeDetected = async (rawCode, sourceFile = null) => {
   if (!isScanning.value && !showSaveDialog.value && !showDuplicateModal.value) return;
   isScanning.value = false;
+  const code = BarcodeParserService.cleanBarcode(rawCode);
   scanResult.value = code;
 
   // --- KROK 1: Sprawdzenie czy kod już istnieje w portfelu (DUPLIKAT) ---
@@ -622,14 +635,25 @@ const runOcrTest = async (imageFile) => {
     }
     console.log('[ScannerView] OCR Result:', result);
 
+    // Podwójna weryfikacja: porównanie kodu ze skanera z kodem z OCR
+    const ocrBarcode = result?.extracted?.barcode;
+    if (ocrBarcode && scanResult.value) {
+      const cleanOcr = BarcodeParserService.cleanBarcode(ocrBarcode);
+      if (scanResult.value === cleanOcr) {
+        isDualVerified.value = true;
+        console.log('[Dual Verification] 100% zgodności między kodem paskowym a OCR:', cleanOcr);
+      }
+    }
+
     if (isFallback) {
       // 1. Sukces OCR: odnaleziono kod kreskowy w tekście
       if (result?.extracted?.barcode) {
-        errorMsg.value = '✓ OCR odczytał kod kreskowy z paragonu!';
-        await onBarcodeDetected(result.extracted.barcode, imageFile);
+        recoveredFromOcr.value = true;
+        errorMsg.value = '✓ Kod odzyskany z tekstu OCR!';
+        await onBarcodeDetected(result.extracted.barcode, null);
         applyOcrValues();
         setTimeout(() => {
-          if (errorMsg.value && errorMsg.value.includes('OCR odczytał')) {
+          if (errorMsg.value && errorMsg.value.includes('Kod odzyskany')) {
             errorMsg.value = '';
           }
         }, 3000);
@@ -726,6 +750,8 @@ const cancelSave = () => {
   ocrPreviewImage.value = null;
   showOcrImage.value = false;
   showRawOcrText.value = false;
+  isDualVerified.value = false;
+  recoveredFromOcr.value = false;
   startCamera();
 };
 
@@ -739,6 +765,8 @@ const resetScan = () => {
   ocrPreviewImage.value = null;
   showOcrImage.value = false;
   showRawOcrText.value = false;
+  isDualVerified.value = false;
+  recoveredFromOcr.value = false;
   startCamera();
 };
 
@@ -1202,6 +1230,36 @@ onUnmounted(() => {
   font-weight: 700;
   padding: 3px 10px;
   border-radius: 12px;
+}
+
+.dual-verified-badge {
+  display: inline-block;
+  margin-top: 8px;
+  background: rgba(16, 185, 129, 0.25);
+  border: 1px solid rgba(16, 185, 129, 0.6);
+  color: #34d399;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
+}
+
+.ocr-recovered-badge {
+  display: inline-block;
+  margin-top: 8px;
+  background: rgba(56, 189, 248, 0.25);
+  border: 1px solid rgba(56, 189, 248, 0.6);
+  color: #38bdf8;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
+}
+
+.text-match {
+  color: #34d399;
+  font-weight: bold;
+  margin-left: 4px;
 }
 
 /* Panel Testowy OCR */

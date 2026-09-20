@@ -11,14 +11,23 @@
 
 export const BarcodeParserService = {
   /**
+   * Oczyszcza kod z nawiasów GS1 Application Identifier (np. (20)01(94)... -> 200194...), spacji i myślników
+   * @param {string} barcode
+   * @returns {string}
+   */
+  cleanBarcode(barcode) {
+    if (!barcode) return '';
+    return String(barcode).trim().replace(/[()\s\-_]/g, '');
+  },
+
+  /**
    * Tries to parse barcode data into receipt fields
    * @param {string} barcode
    * @returns {{ shop_name?: string, amount?: number, expiration_date?: string, detected: boolean }}
    */
   parseBarcode(barcode) {
     if (!barcode) return { detected: false };
-    // Oczyszczamy kod z nawiasów GS1 Application Identifier (np. (20)01(94)... -> 200194...) oraz spacji i kresek
-    const code = barcode.trim().replace(/[()\s\-_]/g, '');
+    const code = this.cleanBarcode(barcode);
 
     // WZORZEC 1: Biedronka Recyklomat (Code 128 - 28 cyfr)
     // Przykład: 9841 01614 5531 178982337 1 00650

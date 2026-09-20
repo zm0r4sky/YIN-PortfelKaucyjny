@@ -97,15 +97,23 @@ class BarcodeScannerServiceClass {
   }
 
   /**
-   * Scans a single video frame with multi-zone strategy:
-   * Zone 1: Center Target Region (ROI) - ultra fast (~2ms)
-   * Zone 2: Full Sensor Frame (downscaled) - wider angle
-   * @param {HTMLVideoElement} video
-   * @param {DOMRect} targetRectInScreen
-   * @returns {Promise<{ text: string, box?: object } | null>}
+   * Oczyszcza kod kreskowy z nawiasów GS1 (AI) oraz spacji i myślników
+   */
+  cleanBarcode(barcode) {
+    if (!barcode) return '';
+    return String(barcode).trim().replace(/[()\s\-_]/g, '');
+  }
+
+  /**
+   * Decodes a video frame using hardware native detector or WASM ROI
+   * @param {HTMLVideoElement} video 
+   * @param {DOMRect|Object} targetRectInScreen
+   * @returns {Promise<{ text: string, box?: Object } | null>}
    */
   async scanVideoFrame(video, targetRectInScreen = null) {
     if (!video || video.readyState < 2) return null;
+    await this.initPromise;
+
     const vw = video.videoWidth;
     const vh = video.videoHeight;
     if (!vw || !vh) return null;
@@ -117,7 +125,7 @@ class BarcodeScannerServiceClass {
         if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
           const raw = barcodes[0];
           return {
-            text: raw.rawValue.trim(),
+            text: this.cleanBarcode(raw.rawValue),
             box: raw.boundingBox || null,
             cornerPoints: raw.cornerPoints || null,
             source: 'native'
@@ -203,7 +211,7 @@ class BarcodeScannerServiceClass {
           };
         }
         return {
-          text: r.text.trim(),
+          text: this.cleanBarcode(r.text),
           box,
           source: 'wasm-roi'
         };
@@ -257,7 +265,7 @@ class BarcodeScannerServiceClass {
           };
         }
         return {
-          text: r.text.trim(),
+          text: this.cleanBarcode(r.text),
           box,
           source: 'wasm-full'
         };
@@ -356,7 +364,7 @@ class BarcodeScannerServiceClass {
       try {
         const results = await this.nativeDetector.detect(canvas);
         if (results && results.length > 0 && results[0].rawValue) {
-          return results[0].rawValue.trim();
+          return this.cleanBarcode(results[0].rawValue);
         }
       } catch (e) {}
     }
@@ -373,7 +381,7 @@ class BarcodeScannerServiceClass {
       });
 
       if (wasmResults && wasmResults.length > 0 && wasmResults[0].text) {
-        return wasmResults[0].text.trim();
+        return this.cleanBarcode(wasmResults[0].text);
       }
     } catch (e) {}
 

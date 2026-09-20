@@ -355,19 +355,37 @@ class OcrServiceClass {
    */
   extractBarcode(text) {
     if (!text) return null;
-    const clean = text.replace(/[()\s\-_]/g, '');
-    // Biedronka (28 cyfr z prefiksem 9841)
-    const b1 = clean.match(/\b(9841\d{24})\b/);
-    if (b1) return b1[1];
-    // Lidl 24 cyfry (z prefiksem 2010)
-    const b2 = clean.match(/\b(2010\d{20})\b/);
-    if (b2) return b2[1];
-    // Lidl / pilotaż 19 cyfr (z prefiksem 200)
-    const b3 = clean.match(/\b(200\d{16})\b/);
-    if (b3) return b3[1];
-    // EAN-13 (13 cyfr z 99 lub 98)
-    const b4 = clean.match(/\b(9[89]\d{11})\b/);
-    if (b4) return b4[1];
+
+    // Krok 1: Przeszukaj wiersz po wierszu
+    const lines = text.split('\n');
+    for (const line of lines) {
+      const cleaned = line.trim().replace(/[()\s\-_]/g, '');
+      if (cleaned.length < 13) continue;
+
+      const candidate = cleaned
+        .replace(/[OoQqDd]/g, '0')
+        .replace(/[Iil|]/g, '1')
+        .replace(/B/g, '8');
+
+      if (/^9841\d{24}$/.test(candidate)) return candidate;
+      if (/^2010\d{20}$/.test(candidate)) return candidate;
+      if (/^200\d{16}$/.test(candidate)) return candidate;
+      if (/^9[89]\d{11}$/.test(candidate)) return candidate;
+      if (/^20\d{11}$/.test(candidate)) return candidate;
+    }
+
+    // Krok 2: Przeszukaj ciągły tekst bez ogranicznika \b
+    const cleanAll = text.replace(/[()\s\-_]/g, '').replace(/[Oo]/g, '0').replace(/[Il]/g, '1');
+    const m1 = cleanAll.match(/9841\d{24}/);
+    if (m1) return m1[0];
+    const m2 = cleanAll.match(/2010\d{20}/);
+    if (m2) return m2[0];
+    const m3 = cleanAll.match(/200\d{16}/);
+    if (m3) return m3[0];
+    const m4 = cleanAll.match(/9[89]\d{11}/);
+    if (m4) return m4[0];
+    const m5 = cleanAll.match(/20\d{11}/);
+    if (m5) return m5[0];
 
     return null;
   }
