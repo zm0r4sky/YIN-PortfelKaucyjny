@@ -120,10 +120,16 @@ export const ReceiptService = {
   },
 
   /**
-   * Trwale usuwa paragon z bazy.
+   * Trwale usuwa paragon z bazy (Faza 1 tryb testowy).
    */
   async deleteReceipt(id) {
-    return await db.receipts.delete(id);
+    if (id === undefined || id === null) {
+      console.warn('[ReceiptService] deleteReceipt: brak ID');
+      return false;
+    }
+    const key = typeof id === 'string' && !isNaN(Number(id)) ? Number(id) : id;
+    await db.receipts.delete(key);
+    return true;
   },
 
   /**

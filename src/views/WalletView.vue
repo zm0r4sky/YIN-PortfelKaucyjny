@@ -173,7 +173,7 @@
             </button>
             <button 
               class="btn btn-card-delete" 
-              @click="confirmDelete(receipt.id)"
+              @click="confirmDelete(receipt)"
             >
               🗑️ Usuń
             </button>
@@ -262,6 +262,40 @@
       </div>
     </transition>
 
+    <!-- MODAL: Potwierdzenie trwałego usunięcia paragonu (Faza 1 tryb testowy) -->
+    <transition name="fade">
+      <div v-if="receiptToDelete" class="modal-backdrop" @click.self="receiptToDelete = null">
+        <div class="delete-modal glass-card">
+          <div class="delete-icon">🗑️</div>
+          <h3 class="delete-title">Usunąć paragon?</h3>
+          <p class="delete-subtitle">
+            Czy na pewno chcesz trwale usunąć ten paragon z archiwum?
+          </p>
+
+          <div class="delete-receipt-preview">
+            <span class="shop-badge mini" :class="getShopClass(receiptToDelete.shop_name)">
+              {{ receiptToDelete.shop_name }}
+            </span>
+            <span class="delete-preview-amount">{{ receiptToDelete.amount.toFixed(2) }} zł</span>
+            <div class="delete-preview-code">#{{ receiptToDelete.barcode }}</div>
+          </div>
+
+          <p class="delete-note">
+            ⚠️ <em>W Fazie 1 funkcja jest dostępna do celów testowych. W Fazie 2 usuwanie z archiwum będzie zablokowane.</em>
+          </p>
+
+          <div class="delete-actions">
+            <button class="btn btn-danger" @click="executeDelete">
+              🗑️ Usuń trwale
+            </button>
+            <button class="btn btn-secondary" @click="receiptToDelete = null">
+              Anuluj
+            </button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
     <!-- Toast powiadomień -->
     <transition name="fade">
       <div v-if="toastMsg" class="toast-notification">
@@ -288,6 +322,9 @@ const isGeneratingBarcode = ref(false);
 // Stan edycji
 const editingReceipt = ref(null);
 const editForm = ref({ shop_name: '', amount: 0, expiration_date: '' });
+
+// Stan usuwania (Faza 1 tryb testowy)
+const receiptToDelete = ref(null);
 
 // Toast
 const toastMsg = ref('');
@@ -394,11 +431,21 @@ const restoreReceipt = async (id) => {
   await loadReceipts();
 };
 
-const confirmDelete = async (id) => {
-  if (confirm('Czy na pewno chcesz trwale usunąć ten paragon?')) {
+const confirmDelete = (receipt) => {
+  receiptToDelete.value = receipt;
+};
+
+const executeDelete = async () => {
+  if (!receiptToDelete.value) return;
+  try {
+    const id = receiptToDelete.value.id;
     await ReceiptService.deleteReceipt(id);
-    showToast('🗑️ Paragon usunięty');
+    receiptToDelete.value = null;
+    showToast('🗑️ Paragon został trwale usunięty');
     await loadReceipts();
+  } catch (err) {
+    console.error('Błąd usuwania paragonu:', err);
+    showToast('Błąd podczas usuwania paragonu');
   }
 };
 
@@ -958,7 +1005,90 @@ onMounted(() => {
 
 .btn-primary { background: #4fc08d; color: #0b1a20; }
 .btn-secondary { background: #e2e8f0; color: #2d3748; }
-.btn-large { padding: 14px 20px; font-size: 1rem; }
+.btn-danger {
+  background: #ef4444;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+}
+.btn-danger:active {
+  background: #dc2626;
+}
+
+/* Modal usuwania */
+.delete-modal {
+  width: 100%;
+  max-width: 380px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 24px;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+}
+
+.delete-icon {
+  font-size: 2.8rem;
+  margin-bottom: 8px;
+}
+
+.delete-title {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0 0 6px;
+}
+
+.delete-subtitle {
+  font-size: 0.88rem;
+  color: #64748b;
+  margin: 0 0 16px;
+  line-height: 1.4;
+}
+
+.delete-receipt-preview {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.delete-preview-amount {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.delete-preview-code {
+  font-family: monospace;
+  font-size: 0.82rem;
+  color: #64748b;
+  word-break: break-all;
+}
+
+.delete-note {
+  font-size: 0.78rem;
+  color: #b45309;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  padding: 8px 12px;
+  border-radius: 10px;
+  margin: 0 0 18px;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.delete-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 
 .toast-notification {
   position: fixed;

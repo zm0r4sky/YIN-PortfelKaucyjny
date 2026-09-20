@@ -49,6 +49,7 @@ Budowa autonomicznej aplikacji działającej lokalnie w przeglądarce, z wykorzy
 - [x] Inteligentny Parser Kodów Kreskowych: Dekodowanie sklepu, kwoty i daty bezpośrednio ze struktury kodu (np. 28-cyfrowy Code 128 z Biedronki: prefix, ID sklepu, timestamp unix, kwota w groszach).
 - [x] Blokada rotacji ekranu w pionie (Portrait Lock w PWA Manifest, Screen Orientation API, meta tagi mobilne oraz bariera CSS landscape blocker).
 - [x] Korekta warstw z-index okien modalnych: Wyniesienie dialogów zapisu paragonu i duplikatów ponad dolną nawigację (`z-index: 20000`) wraz z responsywnym przewijaniem na niskich ekranach.
+- [x] Obsługa usuwania paragonów w Archiwum (Faza 1 tryb testowy): Zastąpienie blokowanego na urządzeniach mobilnych i w PWA natywnego `window.confirm()` dedykowanym modalem potwierdzenia trwałego usunięcia z bezpieczną konwersją klucza głównego w Dexie.js.
 
 ### Etap 1.5: Rozpoznawanie Danych (OCR) - ZADANIE DODATKOWE
 - [x] Integracja `Tesseract.js` (wsparcie języka polskiego i angielskiego z lazy workerem).
