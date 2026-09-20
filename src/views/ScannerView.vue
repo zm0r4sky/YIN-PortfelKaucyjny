@@ -566,7 +566,7 @@ const onBarcodeDetected = async (code, sourceFile = null) => {
   // --- KROK 2: Nowy kod - inżynieria wsteczna danych z kodu ---
   const parsed = BarcodeParserService.parseBarcode(code);
   receiptForm.shop_name = parsed.shop_name || 'Biedronka';
-  receiptForm.amount = parsed.amount || 2.00;
+  receiptForm.amount = (parsed.amount !== undefined && parsed.amount !== null) ? parsed.amount : 2.00;
   receiptForm.expiration_date = parsed.expiration_date || ReceiptService.getDefaultExpirationDate();
   parsedBarcodeHasDate.value = !!parsed.has_date;
   isAutoParsed.value = parsed.detected;
