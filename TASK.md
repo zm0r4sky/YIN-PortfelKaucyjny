@@ -121,6 +121,12 @@ Budowa autonomicznej aplikacji działającej lokalnie w przeglądarce, z wykorzy
   - Utworzenie matrycy 18 niezależnych sygnatur prawno-regulaminowych Biedronki (m.in. "wymienić na gotówkę w kasie sklepu", "niewykorzystany (...) przepada", regulamin kasy samoobsługowej, "Codziennie niskie ceny", "Jeronimo Martins Polska S.A.", "ul. Żniwna 5", "Segreguj i odzyskuj", "www.biedronka.pl").
   - Nowy silnik analizy autentyczności w `OcrService.js` (`analyzeShopDetails`), wyliczający scoring wiarygodności na podstawie korelacji wielu fraz zamiast pojedynczego słowa.
   - Wizualizacja potwierdzonych cech regulaminu w UI skanera (`ScannerView.vue`): złote plakietki `🛡️ Wiarygodność 100% (N cech regulaminu)` oraz rozwijany wykaz zweryfikowanych klauzul.
+- [x] Certyfikacja „100% LEGIT" – pełny przepływ zapisu i blokady edycji:
+  - Przekazanie metadanych weryfikacji (`is_verified`, `trust_score`, `verification_signals`) z `TrustScoreService` do `ReceiptService.addReceipt()` w metodzie `confirmSave()` (`ScannerView.vue`).
+  - Warunkowe ukrywanie przycisku edycji `✏️` w karcie paragonu w portfelu (`WalletView.vue`) za pomocą `v-if="!receipt.is_verified"`.
+  - Wyświetlanie plakietki `🛡️ LEGIT` z zielono-szmaragdowym gradientem w miejsce przycisku edycji dla paragonów zweryfikowanych maszynowo.
+  - Zabezpieczenie defence-in-depth: dodatkowa blokada w `openEditModal()` z komunikatem toast, jeśli użytkownik spróbuje otworzyć modal edycji dla paragonu `is_verified`.
+  - Trójwarstwowa ochrona integralności: 1) UI `v-if`, 2) `openEditModal()` guard, 3) `ReceiptService.updateReceipt()` backend lock.
 
 ---
 
@@ -137,8 +143,35 @@ Ta faza zostanie rozpoczęta dopiero po całkowitym ustabilizowaniu i zatwierdze
 - [ ] Logika wirtualnego portfela punktowego (1 pkt = 1 zł).
 - [ ] Implementacja mechanizmu Escrow (mrożenie punktów kupującego do momentu potwierdzenia działania kodu).
 - [ ] Moduł wycofywania ofert z Marketu (powrót do prywatnego portfela).
+- [ ] **Reguła wejścia na Market:** Tylko paragony z certyfikacją `🛡️ 100% LEGIT` (`is_verified: true`) mogą być wystawione na giełdę bezpośrednio, bez dodatkowej walidacji. Stanowią one najwyższą klasę wartości na rynku.
+
+> **📋 NOTATKA PROJEKTOWA (do wdrożenia w Fazie 2):**
+>
+> **System walidacji społecznościowej (Crowd-Sourced Verification) dla paragonów bez certyfikatu LEGIT:**
+>
+> Paragony, które nie osiągnęły progu 100% LEGIT (np. brak podwójnej weryfikacji kodu, niska czytelność OCR, brak wystarczającej liczby sygnatur), nie mogą trafić na Market bezpośrednio. Zamiast tego przechodzą proces walidacji oparty na społeczności użytkowników:
+>
+> 1. **Podział obrazu paragonu na 4 niezależne fragmenty (kwadranty):**
+>    - 🔲 **Góra** — nagłówek z nazwą sklepu, logo, adresem, NIP
+>    - 🔲 **Dół** — data wydruku, regulamin, informacja o ważności
+>    - 🔲 **Lewa część kodu** — pierwsze ~14 cyfr kodu kreskowego
+>    - 🔲 **Prawa część kodu** — ostatnie ~14 cyfr kodu kreskowego
+>
+> 2. **Dystrybucja do 4 niezależnych użytkowników:**
+>    - Każdy użytkownik otrzymuje TYLKO jeden z 4 fragmentów (nigdy pełny paragon — ochrona przed kradzieżą kodu).
+>    - Użytkownik potwierdza co widzi na swoim fragmencie (np. „Widzę: Biedronka", „Widzę datę: 2026-10-20", „Widzę cyfry: 9841243272...").
+>    - Odpowiedzi walidatorów są porównywane z danymi zadeklarowanymi przez wystawcę.
+>
+> 3. **System nagród:**
+>    - Walidator otrzymuje punkty za udział w weryfikacji (mikro-nagroda za każdy potwierdzony fragment).
+>    - Punkty motywują do aktywnego udziału w społeczności i budują reputację walidatora.
+>
+> 4. **Próg zatwierdzenia:**
+>    - Jeśli ≥3 z 4 walidatorów potwierdzą zgodność swoich fragmentów z deklaracją wystawcy, paragon zostaje dopuszczony na Market z oznaczeniem „Zweryfikowany społecznościowo" (niższy priorytet niż 100% LEGIT, ale wystarczający do handlu).
+>    - Przy rozbieżnościach — paragon trafia do kolejki manualnej rewizji lub zostaje odrzucony.
 
 ### Etap 2.3: Zaufanie i Reputacja
 - [ ] Obliczanie % udanych transakcji dla anonimowych ID.
 - [ ] System zgłaszania fraudów.
 - [ ] Algorytmy karzące / automatyczne bany.
+- [ ] Reputacja walidatorów społecznościowych (dokładność potwierdzeń, szybkość odpowiedzi).

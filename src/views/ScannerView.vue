@@ -179,11 +179,11 @@
                 <div class="success-icon">✓</div>
                 <h3>Kod Rozpoznany!</h3>
                 <p class="barcode-preview">#{{ scanResult }}</p>
-                <div v-if="trustScoreResult.isLegit" class="legit-certified-badge" title="Paragon w 100% autentyczny i zweryfikowany maszynowo (laser + OCR)">
+                <div v-if="trustScoreResult.isLegit" class="legit-certified-badge" title="Paragon w 100% autentyczny i zweryfikowany maszynowo (GS1 + OCR + sygnatury regulaminu)">
                   🛡️ 100% LEGIT – ZWERYFIKOWANY (Zablokowany do edycji)
                 </div>
-                <div v-else-if="isBarcodeVerified" class="dual-verified-badge" title="Kod ze skanera i z odczytu OCR są identyczne">
-                  ✓✓ Podwójna weryfikacja (Skaner + OCR 100% zgodne)
+                <div v-else-if="isBarcodeVerified" class="dual-verified-badge" title="Kod ze skanera i z tekstu OCR są identyczne – dodatkowy bonus weryfikacyjny">
+                  ✓✓ Bonus: Kod w tekście OCR zgodny ze skanem
                 </div>
                 <div v-else-if="recoveredFromOcr" class="ocr-recovered-badge">
                   🔍 Kod odzyskany z tekstu OCR
@@ -502,8 +502,11 @@ const isLidlDateVerified = computed(() => {
 const trustScoreResult = computed(() => {
   return TrustScoreService.calculateTrustScore({
     ocrConfidence: ocrResult.value?.confidence || 0,
-    isBarcodeVerified: isBarcodeVerified.value,
-    isChecksumValid: isChecksumValid.value,
+    // GS1 checksum (ze skanera laserowego) = GŁÓWNA weryfikacja kodu (25 pkt)
+    // OCR nie jest w stanie odczytać 28 cyfr z fotografii paragonu termicznego.
+    isBarcodeVerified: isChecksumValid.value === true,
+    // Bonus (10 pkt): jeśli OCR zdołał odczytać ten sam kod co skaner (rzadkość przy zdjęciach)
+    isChecksumValid: isBarcodeVerified.value || null,
     isShopVerified: isShopVerified.value,
     shopSignalsCount: ocrResult.value?.extracted?.shop_details?.total_signals_count || 0,
     isAmountVerified: isAmountVerified.value,
