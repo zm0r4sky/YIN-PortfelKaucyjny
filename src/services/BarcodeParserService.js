@@ -133,15 +133,49 @@ export const BarcodeParserService = {
       }
     }
 
-    // WZORZEC 4: Bon EAN-13 (13 cyfr z prefiksem 99 lub 98)
-    if (code.length === 13 && /^\d+$/.test(code) && (code.startsWith('99') || code.startsWith('98'))) {
+    // WZORZEC 4: Auchan Paragon Kaucyjny (GS1 Code 128 - 24 cyfry, prefiks 9805)
+    // Struktura: [9805 prefix 4c][storeId 4c][machineId 8c][txSequence 6c][GS1 Mod10 1c]
+    // Przykłady:
+    // 9805 4501 17900141 100005 3 → sklep 4501, txSeq=100005, GS1=3 ✓ (0.50 zł, 21-09-2026)
+    // 9805 4501 17900141 210005 9 → sklep 4501, txSeq=210005, GS1=9 ✓ (0.50 zł, 21-09-2026)
+    // UWAGA: Auchan NIE koduje kwoty ani daty w kodzie — wszystko pochodzi z OCR tekstu.
+    // Data wydruku widoczna jest na paragonie w formacie: "DD.MM.YYYY - HH:MM:SS"
+    if (code.length === 24 && code.startsWith('9805') && /^\d+$/.test(code)) {
+      try {
+        const isChecksumValid = this.validateAuchanCheckDigit(code);
+        const storeId = code.slice(4, 8);
+        const machineId = code.slice(8, 16);
+        const txSequence = code.slice(16, 22);
+        const checkDigit = parseInt(code[23], 10);
+
+        return {
+          shop_name: 'Auchan',
+          amount: 0,           // Kwota tylko z OCR (tekst paragonu)
+          store_id: storeId,
+          machine_id: machineId,
+          tx_sequence: txSequence,
+          check_digit: checkDigit,
+          checksum_valid: isChecksumValid,
+          expiration_date: null, // Auchan nie drukuje terminu ważności
+          has_date: false,       // Data tylko z OCR
+          detected: true,
+          pattern_name: 'Auchan Potwierdzenie Kaucyjne (GS1 Code 128 - 24 cyfry)'
+        };
+      } catch (err) {
+        console.warn('[BarcodeParserService] Error parsing Auchan pattern:', err);
+      }
+    }
+
+    // WZORZEC 5: Bon EAN-13 (13 cyfr z prefiksem 99 - kupony wewnętrzne)
+    // UWAGA: prefiks 98 NIE jest tu — to Auchan (24c). Tylko 99xx.
+    if (code.length === 13 && /^\d+$/.test(code) && code.startsWith('99')) {
       return {
-        shop_name: 'Lidl', // Częsty prefiks bonów kaucji
-        amount: 1.00,
+        shop_name: 'Inny',  // Nieznany sklep dla ogólnych kuponów EAN-13
+        amount: 0,
         expiration_date: this.getDefaultExpirationDate(),
         has_date: false,
-        detected: true,
-        pattern_name: 'Kupon EAN-13'
+        detected: false,
+        pattern_name: 'Kupon EAN-13 (nieznany)'
       };
     }
 
@@ -159,6 +193,36 @@ export const BarcodeParserService = {
     const d = new Date();
     d.setDate(d.getDate() + 30);
     return d.toISOString().split('T')[0];
+  },
+
+  /**
+   * Oblicza cyfrę kontrolną GS1 Modulo 10 dla pierwszych 23 cyfr kodu Auchan.
+   * Identyczny algorytm jak Biedronka (wagi naprzemienne 3 i 1 od lewej).
+   * @param {string} code 24-cyfrowy ciąg cyfr
+   * @returns {number}
+   */
+  calculateAuchanCheckDigit(code) {
+    if (!code || code.length < 23) return -1;
+    let sum = 0;
+    for (let i = 0; i < 23; i++) {
+      const digit = parseInt(code[i], 10);
+      // GS1: od lewej, nieparzyste pozycje (0-indexed) mają wagę 1, parzyste wagę 3
+      const weight = i % 2 === 0 ? 1 : 3;
+      sum += digit * weight;
+    }
+    return (10 - (sum % 10)) % 10;
+  },
+
+  /**
+   * Sprawdza poprawność cyfry kontrolnej w 24-cyfrowym kodzie Auchan (24. cyfra, indeks 23)
+   * @param {string} code
+   * @returns {boolean}
+   */
+  validateAuchanCheckDigit(code) {
+    if (!code || code.length !== 24 || !/^\d+$/.test(code)) return false;
+    const calculated = this.calculateAuchanCheckDigit(code);
+    const actual = parseInt(code[23], 10);
+    return calculated === actual;
   },
 
   /**

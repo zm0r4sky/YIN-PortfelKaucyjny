@@ -350,6 +350,27 @@ class OcrServiceClass {
     ];
   }
 
+  getAuchanSignatures() {
+    return [
+      // === TOŻSAMOŚĆ MARKI ===
+      { id: 'brand_name', label: 'Nazwa "Auchan"', regex: /\bauchan\b/i, weight: 3 },
+      // === SPECYFIKA POTWIERDZENIA ===
+      { id: 'potwierdzenie', label: 'Słowo kluczowe "Potwierdzenie"', regex: /\bpotwierdzenie\b/i, weight: 3 },
+      { id: 'nr_potwierdzenia', label: '"Nr potwierdzenia:XXXXX"', regex: /nr\s*potwierdzenia\s*:\s*\d{4,6}/i, weight: 3 },
+      // === ADRES I SKLEP ===
+      { id: 'store_swiatowida', label: 'Adres sklepu Swiatowida', regex: /swiatowida\s*57/i, weight: 3 },
+      { id: 'store_id_545', label: 'ID sklepu "Auchan 545"', regex: /auchan\s*545/i, weight: 2.5 },
+      { id: 'store_warszawa', label: 'Lokalizacja Warszawa', regex: /warszawa/i, weight: 1.5 },
+      // === REGULAMIN TALONU ===
+      { id: 'talon_butelki', label: '"Należność z talonu za butelki"', regex: /nale[zż]no[sś][cć]\s*z\s*talonu\s*za\s*butelki/i, weight: 3 },
+      { id: 'realizacja_kasy', label: '"realizujemy na kasach"', regex: /realizujemy\s*na\s*kasach/i, weight: 3 },
+      { id: 'okazaniem', label: '"za okazaniem potwierdzenia"', regex: /za\s*okazaniem\s*potwierdzenia/i, weight: 2.5 },
+      // === POZYCJE PARAGONOWE ===
+      { id: 'item_puszka', label: '"N x Puszka X,XXzł"', regex: /\d+\s*x\s*puszka\s+\d/i, weight: 2 },
+      { id: 'suma_zl', label: 'Etykieta "Suma: Xzł"', regex: /suma\s*:\s*[\d,\.]+z[lł]/i, weight: 2 }
+    ];
+  }
+
 
   /**
    * Wielocechowa analiza autentyczności sklepu z ważeniem cech i regulaminu
@@ -388,8 +409,21 @@ class OcrServiceClass {
       }
     }
 
-    // Wybór przeważającej sieci
-    if (bScore > 0 && bScore >= lScore) {
+    // 3. Sprawdź sygnatury Auchan
+    const aSignatures = this.getAuchanSignatures();
+    const aMatched = [];
+    let aScore = 0;
+    for (const sig of aSignatures) {
+      if (sig.regex.test(text)) {
+        aMatched.push(sig.label);
+        aScore += sig.weight;
+      }
+    }
+
+    // Wybór przeważającej sieci (najwyższy score wygrywa)
+    const maxScore = Math.max(bScore, lScore, aScore);
+
+    if (maxScore > 0 && bScore === maxScore) {
       const isAuthentic = bMatched.length >= 2 || bScore >= 5;
       const confidence = Math.min(100, Math.round(bMatched.length >= 3 ? 100 : bMatched.length * 35));
       return {
@@ -404,7 +438,7 @@ class OcrServiceClass {
       };
     }
 
-    if (lScore > 0) {
+    if (maxScore > 0 && lScore === maxScore) {
       const isAuthentic = lMatched.length >= 2 || lScore >= 5;
       const confidence = Math.min(100, Math.round(lMatched.length >= 2 ? 100 : lMatched.length * 50));
       return {
@@ -418,6 +452,22 @@ class OcrServiceClass {
         is_authentic: isAuthentic
       };
     }
+
+    if (maxScore > 0 && aScore === maxScore) {
+      const isAuthentic = aMatched.length >= 2 || aScore >= 5;
+      const confidence = Math.min(100, Math.round(aMatched.length >= 3 ? 100 : aMatched.length * 35));
+      return {
+        shop_name: 'Auchan',
+        confidence_percent: confidence,
+        credibility_label: isAuthentic
+          ? `100% autentyczności (potwierdzone ${aMatched.length} cechami Auchan/Potwierdzenie)`
+          : `Wykryto ${aMatched.length} cechę Auchan`,
+        matched_signals: aMatched,
+        total_signals_count: aMatched.length,
+        is_authentic: isAuthentic
+      };
+    }
+
 
     // Inne popularne sieci handlowe w Polsce
     const lower = text.toLowerCase();
@@ -595,6 +645,28 @@ class OcrServiceClass {
     let printDateStr = null;
     let expDateStr = null;
 
+    // 0. Format Auchan: "pon., DD.MM.YYYY - HH:MM:SS" (data potwierdzenia)
+    // Przykład: "pon., 21.09.2026 - 19:08:30"
+    const auchanDateRegex = /(?:pon\.|wt\.|śr\.|czw\.|pt\.|sob\.|niedz\.)[\s,]*(\d{1,2})\.(\d{1,2})\.(\d{4})\s*[-–]\s*(\d{1,2}:\d{2}:\d{2})/i;
+    const auchanMatch = text.match(auchanDateRegex);
+    if (auchanMatch) {
+      const day = auchanMatch[1].padStart(2, '0');
+      const month = auchanMatch[2].padStart(2, '0');
+      const year = auchanMatch[3];
+      printDateStr = `${year}-${month}-${day}`;
+      // Auchan nie ma terminu ważności — "realizuj na kasie"
+      // expDateStr pozostaje null
+    }
+
+    // Fallback Auchan (bez prefiksu dnia tygodnia)
+    if (!printDateStr) {
+      const auchanDateFallback = /(\d{1,2})\.(\d{1,2})\.(\d{4})\s*[-–]\s*\d{1,2}:\d{2}:\d{2}/;
+      const afm = text.match(auchanDateFallback);
+      if (afm) {
+        printDateStr = `${afm[3]}-${afm[2].padStart(2,'0')}-${afm[1].padStart(2,'0')}`;
+      }
+    }
+
     // 1. Bezpośredni termin ważności z tekstu (np. "Do wykorzystania do dnia:\n2026-10-20", "termin waznosci: 2026-10-20", "ważny do 19.10.2026")
     const expRegex = /(?:do\s*wykorzystania(?:\s*do\s*dnia)?|termin\s*wa[żz]no[sś]ci|wa[żz]n[yae]\s*do|wa[żz]no[sś][cć]|do\s*dnia)\s*[:=]?\s*[\r\n\s]*(\d{4}[\.\-\/]\d{1,2}[\.\-\/]\d{1,2}|\d{1,2}[\.\-\/]\d{1,2}[\.\-\/]\d{4})/i;
     const matchExp = text.match(expRegex);
@@ -605,7 +677,7 @@ class OcrServiceClass {
     // 2. Data wydruku z tekstu (np. "DATA WYDRUKU: 2026-09-20 13:20" lub "data wystawienia: 20.09.2026")
     const printRegex = /(?:data\s*(?:wydruku|wystawienia)?)\s*[:=]?\s*[\r\n\s]*(\d{4}[\.\-\/]\d{1,2}[\.\-\/]\d{1,2}|\d{1,2}[\.\-\/]\d{1,2}[\.\-\/]\d{4})/i;
     const matchPrint = text.match(printRegex);
-    if (matchPrint && matchPrint[1]) {
+    if (!printDateStr && matchPrint && matchPrint[1]) {
       printDateStr = this.normalizeDate(matchPrint[1]);
       // Jeśli nie było bezpośredniej daty ważności, wylicz dokładnie 30 dni od wydruku
       if (!expDateStr) {

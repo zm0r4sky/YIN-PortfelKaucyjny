@@ -515,13 +515,26 @@ const isLidlBarcodeValid = computed(() => {
 
 // Wyliczenie łącznego wskaźnika Zaufania i Autentyczności ("100% LEGIT")
 const trustScoreResult = computed(() => {
-  const isLidl = receiptForm.shop_name === 'Lidl' || lastParsedBarcode.value?.shop_name === 'Lidl';
+  const shopName = receiptForm.shop_name || lastParsedBarcode.value?.shop_name || '';
+  const isLidl = shopName === 'Lidl';
+  const isAuchan = shopName === 'Auchan';
+
+  // Weryfikacja kodu: shop-specific (wszystkie 3 sklepy używają GS1, różne długości kodów)
+  // Biedronka: GS1 Mod10 na 28 cyfrach (z isChecksumValid ze skanera)
+  // Lidl: kwota zakodowana w poz. 10-13 kodu 2010... (matematyczna)
+  // Auchan: GS1 Mod10 na 24 cyfrach z prefiksem 9805 (z parsera kodu)
+  let isBarcodeVerifiedValue;
+  if (isLidl) {
+    isBarcodeVerifiedValue = isLidlBarcodeValid.value;
+  } else if (isAuchan) {
+    isBarcodeVerifiedValue = lastParsedBarcode.value?.checksum_valid === true;
+  } else {
+    isBarcodeVerifiedValue = isChecksumValid.value === true;
+  }
+
   return TrustScoreService.calculateTrustScore({
     ocrConfidence: ocrResult.value?.confidence || 0,
-    // Weryfikacja kodu: shop-specific
-    // Biedronka: GS1 Modulo 10 checksum (matematyczna, 100% niezawodna)
-    // Lidl: kwota zakodowana w pozycjach 10-13 kodu 2010... (matematyczna, pozwala bez OCR)
-    isBarcodeVerified: isLidl ? isLidlBarcodeValid.value : isChecksumValid.value === true,
+    isBarcodeVerified: isBarcodeVerifiedValue,
     // Bonus (10 pkt): jeśli OCR zdołał odczytać ten sam kod co skaner (rzadkość przy zdjęciach)
     isChecksumValid: isBarcodeVerified.value || null,
     isShopVerified: isShopVerified.value,
