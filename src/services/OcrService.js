@@ -618,41 +618,119 @@ class OcrServiceClass {
       }
     }
 
-    // 3. Format ze słownym skrótem miesiąca (np. Tomra / Lidl: "18:33:58 12-GRU-2025" lub "12-GRU-?")
+    // 3. Format ze słownym skrótem miesiąca (Tomra / Lidl: "11:15:51 21-WRZ-2026")
+    // Obsługuje zniekształcenia OCR w polach dnia i roku:
+    //   "Zl-WRZ-ZUTE" → dzień "Zl"→21, rok "ZUTE"→2026 (Z=2, U=0, T→próba 2/7, E=6)
+    //   "]" między godziną a datą (artefakt Tesseract) → usuwane w pre-processingu
     if (!printDateStr || !expDateStr) {
-      const textMonthRegex = /(?:(\d{1,2})[:\.](\d{2})[:\.](\d{2})\s+)?(\d{1,2})\s*[\.\-\/\s]\s*([A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż0-9]{3,12})\s*[\.\-\/\s]\s*(\d{4}|\d{2}|\?+)/gi;
-      const textMatches = [...text.matchAll(textMonthRegex)];
+      // Pre-process: usuń znaki nawiasowe i inne artefakty OCR między godziną a datą
+      const tomraText = text.replace(/[\[\]|!]/g, ' ');
+
+      // Relaxed regex: dzień i rok mogą zawierać litery zamiast cyfr
+      // Separator czas↔data: \s+ lub dowolne 1-3 znaki nie-słowne (np. "] ")
+      const textMonthRegex = /(?:(\d{1,2})[:\.](\d{2})[:\.](\d{2})[^\w]{0,4})?([0-9A-Za-z]{1,2})\s*[\.\-\/]\s*([A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż0-9]{3,12})\s*[\.\-\/]\s*([0-9A-Za-z]{2,4}|\?+)/gi;
+      const textMatches = [...tomraText.matchAll(textMonthRegex)];
+
       for (const match of textMatches) {
-        const day = parseInt(match[4], 10);
+        // --- Dzień: napraw zniekształcenia OCR ---
+        const rawDay = match[4];
+        const fixedDayStr = rawDay
+          .replace(/[Oo]/g, '0').replace(/[Iil|]/g, '1').replace(/[Zz]/g, '2')
+          .replace(/[Ss]/g, '5').replace(/[Bb]/g, '8');
+        const day = parseInt(fixedDayStr, 10);
         if (day < 1 || day > 31) continue;
 
+        // --- Miesiąc ---
         const rawMonth = match[5].toUpperCase()
           .replace(/Ą/g, 'A').replace(/Ć/g, 'C').replace(/Ę/g, 'E')
           .replace(/Ł/g, 'L').replace(/Ń/g, 'N').replace(/Ó/g, 'O')
           .replace(/Ś/g, 'S').replace(/Ź/g, 'Z').replace(/Ż/g, 'Z');
-        
         const month = MONTH_MAP[rawMonth] !== undefined ? MONTH_MAP[rawMonth] : MONTH_MAP[rawMonth.slice(0, 3)];
-        if (month !== undefined) {
-          let year;
-          if (match[6] && /^\d{4}$/.test(match[6])) {
-            year = parseInt(match[6], 10);
-          } else if (match[6] && /^\d{2}$/.test(match[6])) {
-            year = 2000 + parseInt(match[6], 10);
-          } else {
-            const currentYear = new Date().getFullYear();
-            year = currentYear;
-            if (month > new Date().getMonth()) {
-              year = currentYear - 1;
-            }
-          }
+        if (month === undefined) continue;
 
-          const d = new Date(Date.UTC(year, month, day));
-          if (!isNaN(d.getTime())) {
-            if (!printDateStr) printDateStr = d.toISOString().split('T')[0];
-            if (!expDateStr) {
-              const exp = new Date(Date.UTC(year, month, day));
-              exp.setUTCDate(exp.getUTCDate() + 30);
-              expDateStr = exp.toISOString().split('T')[0];
+        // --- Rok: 4-poziomowe odzyskiwanie ---
+        const rawYear = match[6];
+        let year = null;
+
+        // Poziom 1: Podstawowe substytucje znaków → cyfry
+        const fixedYearBase = rawYear
+          .replace(/[Oo]/g, '0').replace(/[Iil|]/g, '1').replace(/[Zz]/g, '2')
+          .replace(/[Ss]/g, '5').replace(/[Bb]/g, '8')
+          .replace(/[Uu]/g, '0')  // U wygląda jak 0 w czcionkach termicznych
+          .replace(/[Ee]/g, '6')  // E może być otwartym 6
+          .replace(/[Gg]/g, '6'); // G podobne do 6
+
+        const directYear = parseInt(fixedYearBase, 10);
+        if (directYear >= 2024 && directYear <= 2035) {
+          year = directYear;
+        }
+
+        // Poziom 2: Próba T→2/7 (ZUTE→20T6 → T=2 → 2026)
+        if (year === null) {
+          for (const tSub of ['2', '7', '1', '3']) {
+            const attempt = parseInt(fixedYearBase.replace(/T/gi, tSub), 10);
+            if (attempt >= 2024 && attempt <= 2035) { year = attempt; break; }
+          }
+        }
+
+        // Poziom 3: Wymuś prefiks "20" jeśli pierwsze 2 znaki to "20"
+        if (year === null && fixedYearBase.startsWith('20')) {
+          const suffix = fixedYearBase.slice(2).replace(/[^\d]/g, '');
+          if (suffix.length === 2) {
+            const y = parseInt('20' + suffix, 10);
+            if (y >= 2024 && y <= 2035) year = y;
+          }
+        }
+
+        // Poziom 4: Użyj bieżącego roku jeśli mamy pewność co do godziny (czas był w meczu)
+        if (year === null && match[1]) {
+          const currentYear = new Date().getFullYear();
+          year = currentYear;
+          if (month < new Date().getMonth() - 2) year = currentYear + 1;
+        }
+
+        if (year === null) continue;
+
+        const d = new Date(Date.UTC(year, month, day));
+        if (!isNaN(d.getTime())) {
+          if (!printDateStr) printDateStr = d.toISOString().split('T')[0];
+          if (!expDateStr) {
+            const exp = new Date(Date.UTC(year, month, day));
+            exp.setUTCDate(exp.getUTCDate() + 30);
+            expDateStr = exp.toISOString().split('T')[0];
+          }
+          break;
+        }
+      }
+    }
+
+    // 3b. Sygnatura Tomra: fallback jeśli pełna data nie dała się odczytać
+    // Warunek: tekst zawiera wzorzec godziny HH:MM:SS I znany skrót miesiąca
+    // Wystarczy do potwierdzenia że paragon pochodzi z maszyny Tomra (anty-fraud)
+    if (!printDateStr) {
+      const timeMatch = text.match(/(\d{1,2}):(\d{2}):(\d{2})/);
+      if (timeMatch) {
+        // Sprawdź obecność skrótu miesiąca (z fuzzy matching)
+        const tomraPreprocessed = text.replace(/[\[\]|!]/g, ' ');
+        const monthSearchRegex = /\b([0-9A-Za-z]{1,2})\s*[-]\s*([A-Za-z]{3,4})\s*[-]\s*([0-9A-Za-z]{4})\b/gi;
+        const monthMatches = [...tomraPreprocessed.matchAll(monthSearchRegex)];
+        for (const mm of monthMatches) {
+          const rawM = mm[2].toUpperCase()
+            .replace(/Ą/g, 'A').replace(/Ę/g, 'E').replace(/Ó/g, 'O')
+            .replace(/Ś/g, 'S').replace(/Ź/g, 'Z').replace(/Ż/g, 'Z');
+          const mIdx = MONTH_MAP[rawM] !== undefined ? MONTH_MAP[rawM] : MONTH_MAP[rawM.slice(0, 3)];
+          if (mIdx !== undefined) {
+            // Napraw dzień
+            const rawD = mm[1];
+            const fixedD = rawD.replace(/[Zz]/g, '2').replace(/[Iil|]/g, '1').replace(/[Oo]/g, '0');
+            const dayFallback = Math.max(1, Math.min(31, parseInt(fixedD, 10) || 1));
+            const yearFallback = new Date().getFullYear();
+            const dFallback = new Date(Date.UTC(yearFallback, mIdx, dayFallback));
+            if (!isNaN(dFallback.getTime())) {
+              printDateStr = dFallback.toISOString().split('T')[0];
+              const expFallback = new Date(Date.UTC(yearFallback, mIdx, dayFallback));
+              expFallback.setUTCDate(expFallback.getUTCDate() + 30);
+              expDateStr = expFallback.toISOString().split('T')[0];
             }
             break;
           }
