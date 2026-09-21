@@ -169,3 +169,18 @@ KLUCZOWE SYGNATURY OCR DLA LIDL (nowe, z autentycznych paragonów 21-09-2026):
   - "Tomra 9" - model maszyny (uwaga: "Tomra 9" NIE "Tomra 90"!)
   - "606657-90360000-" - prefiks numeru seryjnego maszyny (NOWY, bardzo specyficzny!)
   - Data format: "HH:MM:SS DD-MMM-YYYY" (np. "11:00:28 21-WRZ-2026") - jedyna weryfikacja daty
+
+=== POTWIERDZONE MAPOWANIE store_id → sklep (z 5 autentycznych paragonów) ===
+store_id (poz. 14-17)  | Sklep                           | Automat     | Kod kreskowy
+-----------------------|---------------------------------|-------------|-----------------------------
+2236                   | Lidl Warszawa ul. Odkryta 61    | Automat 1   | 201000002000502236145474
+1083                   | Lidl Warszawa ul. Conrada 1     | Automat 1   | 201000002002001083172521
+1083                   | Lidl Warszawa ul. Conrada 1     | Automat 2   | 201000002000501083282139
+2175                   | Lidl Warszawa ul. Kasprowicza 117| Automat 1  | 201000002000502175282311
+1165                   | Lidl Warszawa ul. Myśliborska 94| Automat 1   | 201000002000501165171570
+
+WNIOSEK: Ten sam sklep (store_id=1083, ul. Conrada 1) posiada co najmniej 2 automaty.
+Pozycje 18-23 (ticket_id) różnią się między automatami tego samego sklepu:
+  Automat 1 → ticket_id=172521
+  Automat 2 → ticket_id=282139
+To potwierdza że ticket_id jest licznikiem globalnym lub numerem seryjnym sesji, NIE ID automatu.
