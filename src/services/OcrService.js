@@ -327,16 +327,29 @@ class OcrServiceClass {
 
   getLidlSignatures() {
     return [
+      // === TOŻSAMOŚĆ FIRMY ===
       { id: 'brand_name', label: 'Nazwa "Lidl"', regex: /\blidl\b/i, weight: 3 },
+      { id: 'company_legal', label: 'Pełna nazwa "Lidl sp. z o.o. sp.k."', regex: /lidl\s*sp\.?\s*z\s*o\.?o\.?\s*sp\.?k\.?/i, weight: 3 },
       { id: 'company_nip', label: 'NIP "7811897358"', regex: /7811897358/, weight: 3 },
+      { id: 'company_bdo', label: 'BDO "000002265"', regex: /BDO[\s:]*000002265/i, weight: 2.5 },
+      // === ADRES CENTRALI ===
       { id: 'company_address_city', label: 'Centrala "Tarnowo Podgórne / Jankowice"', regex: /tarnowo\s*podg[oó]rne|jankowice/i, weight: 2.5 },
       { id: 'company_address_street', label: 'Adres "ul. Poznańska 48"', regex: /pozna[nń]ska\s*48/i, weight: 2.5 },
-      { id: 'machine_model', label: 'Automat Tomra 90', regex: /tomra(?:\s*90)?/i, weight: 2.5 },
-      { id: 'discount_sum', label: 'Etykieta "Suma rabatu"', regex: /suma\s*rabatu/i, weight: 2 },
-      { id: 'local_branch', label: 'Lokalizacja "Wrocław / Braniborska"', regex: /braniborska|wroc[lł]aw/i, weight: 2 },
-      { id: 'website', label: 'Adres lidl.pl', regex: /(?:www\.)?lidl\.pl/i, weight: 2 }
+      { id: 'company_postal', label: 'Kod pocztowy "62-080"', regex: /62[\-\s]?080/i, weight: 2 },
+      // === REGULAMIN KUPONU ===
+      { id: 'coupon_usage', label: 'Klauzula "Kupon do wykorzystania w dowolnym sklepie Lidl"', regex: /kupon\s*do\s*wykorzystania\s*w\s*dowolnym\s*sklepie\s*lidl/i, weight: 3 },
+      { id: 'coupon_validity', label: 'Termin "Kupon jest ważny 30 dni od daty jego wydania"', regex: /kupon\s*jest\s*wa[żz]ny\s*30\s*dni/i, weight: 2.5 },
+      { id: 'coupon_rules', label: 'Regulamin "dostępny na www.lidl.pl"', regex: /regulamin\s*dost[eę]pny\s*na\s*(?:www\.)?lidl\.pl/i, weight: 2.5 },
+      { id: 'website', label: 'Adres lidl.pl', regex: /(?:www\.)?lidl\.pl/i, weight: 1.5 },
+      // === MASZYNA TOMRA ===
+      { id: 'machine_model', label: 'Automat "Tomra 9"', regex: /tomra\s*9\b/i, weight: 2.5 },
+      { id: 'machine_serial', label: 'Nr seryjny Tomra "606657-90360000-"', regex: /606657[\-\s]?90360000/i, weight: 3 },
+      // === POZYCJE PARAGONOWE ===
+      { id: 'item_bottle', label: '"Butelka kaucja" lub "Puszka kaucja"', regex: /(?:butelka|puszka)\s*kaucja/i, weight: 2 },
+      { id: 'item_suma_pln', label: 'Etykieta "SUMA: PLN"', regex: /suma\s*[\r\n\s]*pln\s*[\d,\.]+/i, weight: 2 }
     ];
   }
+
 
   /**
    * Wielocechowa analiza autentyczności sklepu z ważeniem cech i regulaminu

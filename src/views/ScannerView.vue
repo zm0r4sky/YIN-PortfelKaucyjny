@@ -498,13 +498,30 @@ const isLidlDateVerified = computed(() => {
   return isLidl && !!ocrResult.value?.extracted?.print_date;
 });
 
+// Weryfikacja kodu Lidl przez kwotę zakodowaną w kodzie kreskowym
+// Pozycje 10-13 kodu 2010... to kwota kaucji w groszach (0050 = 0.50 zł, 0200 = 2.00 zł)
+// To matematyczna weryfikacja równoważna sumie kontrolnej GS1 Biedronki.
+const isLidlBarcodeValid = computed(() => {
+  if (!scanResult.value) return false;
+  const code = String(scanResult.value).replace(/[()\s\-_]/g, '');
+  if (!code.startsWith('2010') || code.length < 14 || !/^\d+$/.test(code)) return false;
+  const depositGroszeStr = code.slice(10, 14);
+  const barcodeAmount = parseInt(depositGroszeStr, 10) / 100;
+  const nonDepositGroszeStr = code.slice(4, 8);
+  const nonDepositAmount = parseInt(nonDepositGroszeStr, 10) / 100;
+  const totalAmount = parseFloat((barcodeAmount + nonDepositAmount).toFixed(2));
+  return receiptForm.amount > 0 && Math.abs(totalAmount - receiptForm.amount) < 0.01;
+});
+
 // Wyliczenie łącznego wskaźnika Zaufania i Autentyczności ("100% LEGIT")
 const trustScoreResult = computed(() => {
+  const isLidl = receiptForm.shop_name === 'Lidl' || lastParsedBarcode.value?.shop_name === 'Lidl';
   return TrustScoreService.calculateTrustScore({
     ocrConfidence: ocrResult.value?.confidence || 0,
-    // GS1 checksum (ze skanera laserowego) = GŁÓWNA weryfikacja kodu (25 pkt)
-    // OCR nie jest w stanie odczytać 28 cyfr z fotografii paragonu termicznego.
-    isBarcodeVerified: isChecksumValid.value === true,
+    // Weryfikacja kodu: shop-specific
+    // Biedronka: GS1 Modulo 10 checksum (matematyczna, 100% niezawodna)
+    // Lidl: kwota zakodowana w pozycjach 10-13 kodu 2010... (matematyczna, pozwala bez OCR)
+    isBarcodeVerified: isLidl ? isLidlBarcodeValid.value : isChecksumValid.value === true,
     // Bonus (10 pkt): jeśli OCR zdołał odczytać ten sam kod co skaner (rzadkość przy zdjęciach)
     isChecksumValid: isBarcodeVerified.value || null,
     isShopVerified: isShopVerified.value,

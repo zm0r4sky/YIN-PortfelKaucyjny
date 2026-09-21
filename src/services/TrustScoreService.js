@@ -81,7 +81,11 @@ export const TrustScoreService = {
     let barcodeScore = 0;
     if (isBarcodeVerified) {
       barcodeScore = 25;
-      signals.push('Suma kontrolna GS1 Modulo 10 poprawna (matematyczna pewność kodu)');
+      if (shopName === 'Lidl') {
+        signals.push('Kwota zakodowana w kodzie Lidl (poz. 10-13) zgodna z deklarowaną');
+      } else {
+        signals.push('Suma kontrolna GS1 Modulo 10 poprawna (matematyczna pewność kodu)');
+      }
     }
     score += barcodeScore;
 

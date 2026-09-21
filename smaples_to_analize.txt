@@ -51,6 +51,59 @@ z innymi voucherami oraz rabatami
 Voucher można wykorzystać
 wyłącznie raz.
 Voucher można wykorzystać
+201005002000001944111416 Lidl 5 złotych 4x puszka bez kaucji = 0.70 gr + 43x Butelka bez kaucji 4.30 złotych
+201007102004501944115498 Lidl 11.60 złotych 15 puszka bez kaucji, 9 butelka kaucyna, 56 butelka bez kaucji data wydruku 04-2-2206 18:56:43
+2001941100013000035 Lidl 7x butelka plastikowa= 0.35 gr data wydruku 05-02=2025 13:04:32
+201006802000001944113095 Lidl kwota 6.80, 1 puszka bez kaucji 0.10, 67 butelek bez kaucji 6.70 Data 16-02-2026 17:06:52
+201000102000001421103946 Lidl 1 butelka bez kaucji 0.10 gr Data 01-10-2025 07:09:41
+201002602000001944126712 Lidl 26 puszek bez kaucji = 2.60, Data 07-04-2026 11:31:47
+201006202014501944127822 Lidl 15 puszek kaucyjnmy za 7.50, 29 puszek bez kucji za 2.90, 14 butelek kucyjny za 7 zl, 33 butelki bez kuacji 3,30 data 11-04-2026 14:38:10
+201002902001501944126729 Lidl 27 puszek bez kucji 2,70 3x butelka z kaucja 1,50 2 bute bez kaucji 0.20 łączeni 4.40 data 12:12:33 07-04-2026
+201004802003501632104635 Lidl 36 puszki be kaucji 3.60 7 butelki kaucyjne 3.50 12 butelek bez kaucji 1.20 lacznie 8.30 data 09:00:39 31-stycznai-2026
+2001173100505000050 Lidl 5x butelka bez kaucji po 10 gr
+201000002006501458106421 Lidl 13 butelek kucyjnmy po 0.50 gr razem 6.50 
+201009002000001944110582 lidl raz 9 zł, 28 puszek bez kaucji 2.80 + 62 bute bez kaucji 6.20 data 18:33:58 12-12-2025
+201000002001001245207399 Lidl 2 butelki kaucyjnych razem 1 pln data 17-01-2026 14:16:06
+201000002020501016115136 Lidl 41 butelek kaucyjnyych 20:50 łączeni data marzen-2026
+2001241104681000010 Lidl 1x Butelka bez kacuji 0.10 Data 14:09:59 10-WRZ-2025
+9841243272171178990684700059 Biedronka 1x butelka kaucja 0.50 zł data 20-09-2026 ul. Paderewskiego 1, Zielonka 05-220
+9841243272171178990681600055 Biedronka 1x butelka kaucja 0.50 zł data 20-09-2026 ul. Paderewskiego 1, Zielonka 05-220
+9841243272171178990683800057 Biedronka 1x butelka kaucja 0.50 zł data 20-09-2026 ul. Paderewskiego 1, Zielonka 05-220
+9841243272171178990682700051 Biedronka 1x butelka kaucja 0.50 zł data 20-09-2026 ul. Paderewskiego 1, Zielonka 05-220
+
+=== WZORZEC PEŁNEJ TREŚCI PARAGONU BIEDRONKA (ZIELONKA / POLSKA) ===
+Biedronka
+Codziennie niskie ceny
+Jeronimo Martins Polska S.A.
+62-025 Kostrzyn
+ul. Żniwna 5
+
+DATA WYDRUKU: 2026-09-20 13:20
+1 x Butelka plastikowa 0.50zl 0,50zł
+Suma:0,50zł
+9841243272171178990681600055
+Do wykorzystania do dnia:
+2026-10-20
+Voucher niewykorzystany w okresie
+jego ważności przepada.
+Voucher można wykorzystać
+na kolejne zakupy albo wymienić
+na gotówkę w kasie sklepu.
+Aby zrealizować Voucher należy:
+Okazać Voucher kasjerowi przed
+dokonaniem płatności za zakupy lub
+w przypadku płatności w kasie
+samoobsługowej* wybrać na
+ekranie opcję płatności "voucher",
+a następnie zeskanować kod
+kreskowy z Vouchera.
+Vouchery można sumować w ramach
+jednej transakcji, w tym łaczyć
+z innymi voucherami oraz rabatami
+"od razu".
+Voucher można wykorzystać
+wyłącznie raz.
+Voucher można wykorzystać
 w każdym sklepie BIEDRONKA.
 Szczegóły w regulamienie w sklepie
 i na www.biedronka.pl
@@ -62,3 +115,57 @@ wyższa od wartości Vouchera.
 SEGREGUJ
 I ODZYSKUJ
 CODZINNIE
+
+=== PRÓBKI BARKODÓW LIDL (21-09-2026, maszyna Tomra 9, Polska) ===
+201000002000502236145474 Lidl 1x Butelka kaucja 0.50 zł Tomra 9 606657-90360000-25576-00 11:26:08 21-WRZ-2026
+201000002002001083172521 Lidl 3x Puszka kaucja 1.50 + 1x Butelka kaucja 0.50 = 2.00 zł Tomra 9 606657-90360000-15848-00 06:24:27 21-WRZ-2026
+201000002000501083282139 Lidl 1x Puszka kaucja 0.50 zł Tomra 9 606657-90360000-17790-00 10:48:07 21-WRZ-2026
+201000002000502175282311 Lidl 1x Butelka kaucja 0.50 zł Tomra 9 606657-90360000-25999-00 11:00:28 21-WRZ-2026
+201000002000501165171570 Lidl 1x Butelka kaucja 0.50 zł Tomra 9 606657-90360000-14297-00 11:15:51 21-WRZ-2026
+
+=== WZORZEC PEŁNEJ TREŚCI PARAGONU LIDL (TOMRA 9, POLSKA 2026) ===
+Lidl sp. z o.o. sp.k.
+ul. Poznańska 48,
+62-080 Jankowice,
+Tarnowo Podgórne
+BDO: 000002265
+NIP: 7811897358
+SUMA:
+PLN 0.50
+201000002000502175282311
+1x Butelka kaucja             0.50
+1                                       0.50
+Kupon do wykorzystania
+w dowolnym sklepie Lidl.
+Kupon jest ważny 30 dni
+od daty jego wydania.
+Regulamin dostępny na www.lidl.pl
+Tomra 9
+606657-90360000-2599-00
+11:00:28 21-WRZ-2026
+
+=== UWAGI DO STRUKTURY KODU LIDL (24 cyfry, prefiks 2010) ===
+FORMAT:  2010 [0000] 20 [XXXX] [YYYY] [ZZZZZZ]
+POLA:
+  - 2010       = stały prefiks (pozycje 0-3)
+  - 0000       = kwota pozakaucyjna w groszach (pozycje 4-7), typowo 0000
+  - 20         = separator kaucji ustawowej (pozycje 8-9)
+  - XXXX       = kwota kaucji w groszach (pozycje 10-13): 0050=0.50zł, 0100=1.00zł, 0200=2.00zł
+  - YYYY       = 4-cyfrowy ID sklepu (pozycje 14-17)
+  - ZZZZZZ     = 6-cyfrowy numer transakcji (pozycje 18-23)
+  BRAK CYFRY KONTROLNEJ (w odróżnieniu od Biedronki GS1 Mod10)
+  Kwota w kodzie może być weryfikowana przez: pos[10-13] == kwota_z_paragonu * 100
+
+KLUCZOWE SYGNATURY OCR DLA LIDL (nowe, z autentycznych paragonów 21-09-2026):
+  - "Lidl sp. z o.o sp.k." - nazwa firmy
+  - "ul. Poznańska 48" - adres
+  - "62-080 Jankowice" - kod pocztowy + miasto
+  - "Tarnowo Podgórne" - miasto centrali
+  - "BDO: 000002265" - numer BDO (NOWY!)
+  - "NIP: 7811897358" - NIP
+  - "Kupon do wykorzystania w dowolnym sklepie Lidl" - klauzula kuponu (NOWY!)
+  - "Kupon jest ważny 30 dni od daty jego wydania" - termin ważności (NOWY!)
+  - "Regulamin dostępny na www.lidl.pl" - strona www
+  - "Tomra 9" - model maszyny (uwaga: "Tomra 9" NIE "Tomra 90"!)
+  - "606657-90360000-" - prefiks numeru seryjnego maszyny (NOWY, bardzo specyficzny!)
+  - Data format: "HH:MM:SS DD-MMM-YYYY" (np. "11:00:28 21-WRZ-2026") - jedyna weryfikacja daty
