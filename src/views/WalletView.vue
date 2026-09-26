@@ -190,43 +190,46 @@
       </div>
     </div>
 
-    <!-- MODAL: Prezenter Kodu Kreskowego dla Kasjera -->
+    <!-- MODAL: Pełnoekranowy Prezenter Kodu Kreskowego (Bez przycisków, max czytelność dla skanerów) -->
     <teleport to="body">
       <transition name="fade">
-        <div v-if="activePresenterReceipt" class="modal-backdrop" @click.self="closeBarcodePresenter">
-          <div class="cashier-modal">
-            <button type="button" class="modal-close-btn" @click="closeBarcodePresenter" title="Zamknij">✕</button>
-            <div class="cashier-header">
+        <div 
+          v-if="activePresenterReceipt" 
+          class="barcode-fullscreen-backdrop" 
+          @click="closeBarcodePresenter"
+          title="Odwróć ekran lub dotknij, aby zamknąć podgląd"
+        >
+          <div class="fullscreen-barcode-container" @click.stop="closeBarcodePresenter">
+            <!-- Górna belka informacyjna -->
+            <div class="fullscreen-barcode-top">
               <span class="shop-badge large" :class="getShopClass(activePresenterReceipt.shop_name)">
                 {{ activePresenterReceipt.shop_name }}
               </span>
-              <div class="cashier-amount">
-                {{ activePresenterReceipt.amount.toFixed(2) }} <span>zł</span>
+              <div class="fullscreen-amount">
+                {{ activePresenterReceipt.amount.toFixed(2) }} <span class="curr">zł</span>
               </div>
-              <p class="cashier-hint">Skieruj kod do czytnika kasowego lub automatu</p>
             </div>
 
-            <!-- Wygenerowany obraz kodu kreskowego -->
-            <div class="barcode-display-box">
+            <!-- Centralny gigantyczny kod kreskowy -->
+            <div class="fullscreen-code-box">
               <div v-if="isGeneratingBarcode" class="barcode-spinner">
-                Generowanie ostrości kodu...
+                Generowanie maksymalnej ostrości kodu...
               </div>
-              <img 
-                v-else-if="presenterBarcodeUrl" 
-                :src="presenterBarcodeUrl" 
-                alt="Kod kreskowy" 
-                class="generated-barcode-img" 
-              />
-              <div class="barcode-human-text">{{ activePresenterReceipt.barcode }}</div>
+              <template v-else-if="presenterBarcodeUrl">
+                <img 
+                  :src="presenterBarcodeUrl" 
+                  alt="Kod kreskowy" 
+                  class="fullscreen-barcode-img" 
+                />
+                <div class="fullscreen-barcode-number">{{ activePresenterReceipt.barcode }}</div>
+              </template>
             </div>
 
-            <div class="cashier-actions">
-              <button class="btn btn-primary btn-large" @click="markAsUsedFromPresenter">
-                ✓ Zrealizowano kaucję (Archiwizuj)
-              </button>
-              <button class="btn btn-secondary" @click="closeBarcodePresenter">
-                Zamknij
-              </button>
+            <!-- Dolna informacja ze wskazówką odwrócenia ekranu -->
+            <div class="fullscreen-barcode-footer">
+              <span class="tap-to-close-hint">
+                <span class="rotate-icon">🔄</span> Odwróć ekran, aby zamknąć podgląd
+              </span>
             </div>
           </div>
         </div>
@@ -334,7 +337,7 @@ import { ReceiptService } from '../services/ReceiptService';
 const receipts = ref([]);
 const currentTab = ref('active');
 const selectedShopFilter = ref('ALL');
-const popularShops = ['Biedronka', 'Lidl', 'Dino', 'Kaufland', 'Carrefour', 'Żabka', 'Inny'];
+const popularShops = ['Biedronka', 'Lidl', 'Auchan', 'Dino', 'Kaufland', 'Carrefour', 'Żabka', 'Inny'];
 
 // Stan prezentera kodu
 const activePresenterReceipt = ref(null);
@@ -433,6 +436,7 @@ const getShopClass = (shopName) => {
   const name = (shopName || '').toLowerCase();
   if (name.includes('biedronka')) return 'shop-biedronka';
   if (name.includes('lidl')) return 'shop-lidl';
+  if (name.includes('auchan')) return 'shop-auchan';
   if (name.includes('dino')) return 'shop-dino';
   if (name.includes('kaufland')) return 'shop-kaufland';
   if (name.includes('carrefour')) return 'shop-carrefour';
@@ -783,6 +787,7 @@ onMounted(() => {
 
 .shop-biedronka { background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; }
 .shop-lidl { background: #dbeafe; color: #1d4ed8; border: 1px solid #93c5fd; }
+.shop-auchan { background: #fef2f2; color: #b91c1c; border: 1px solid #f87171; }
 .shop-dino { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
 .shop-kaufland { background: #ffedd5; color: #c2410c; border: 1px solid #fdba74; }
 .shop-carrefour { background: #e0e7ff; color: #4338ca; border: 1px solid #a5b4fc; }
@@ -988,79 +993,164 @@ onMounted(() => {
   transform: scale(0.92);
 }
 
-.cashier-modal {
-  position: relative;
+/* Pełnoekranowy Prezenter Kodu (bez przycisków, max czytelność) */
+.barcode-fullscreen-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
   background: #ffffff;
-  width: 100%;
-  max-width: 420px;
-  max-height: min(78dvh, 580px);
-  overflow-y: auto;
-  overflow-x: hidden;
-  box-sizing: border-box;
-  -webkit-overflow-scrolling: touch;
-  border-radius: 20px;
-  padding: 20px 18px 24px;
-  text-align: center;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-  word-break: break-word;
-  overflow-wrap: anywhere;
-}
-
-.cashier-amount {
-  font-size: 2.8rem;
-  font-weight: 800;
-  color: #1b263b;
-  margin: 10px 0 4px;
-}
-
-.cashier-amount span {
-  font-size: 1.5rem;
-  color: #64748b;
-}
-
-.cashier-hint {
-  font-size: 0.85rem;
-  color: #64748b;
-  margin: 0 0 20px;
-}
-
-.barcode-display-box {
-  background: #ffffff;
-  padding: 16px;
-  border: 2px dashed #cbd5e1;
-  border-radius: 16px;
-  margin-bottom: 24px;
-  box-sizing: border-box;
-  overflow-x: hidden;
-  max-width: 100%;
-}
-
-.generated-barcode-img {
-  width: 100%;
-  height: auto;
-  max-height: 140px;
-  display: block;
-  object-fit: contain;
-  margin: 0 auto 10px;
-}
-
-.barcode-human-text {
-  font-family: monospace;
-  font-size: 1.1rem;
-  font-weight: 800;
-  letter-spacing: 1px;
-  color: #0f172a;
-  word-break: break-all;
-  overflow-wrap: anywhere;
-  white-space: normal;
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
-.cashier-actions {
+  z-index: 99999;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  padding: env(safe-area-inset-top, 16px) 16px env(safe-area-inset-bottom, 20px) 16px;
+  box-sizing: border-box;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.fullscreen-barcode-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 600px;
+  height: 100%;
+  max-height: 100dvh;
+  box-sizing: border-box;
+  padding: 10px 0;
+}
+
+.fullscreen-barcode-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 10px;
+  box-sizing: border-box;
+}
+
+.fullscreen-amount {
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1;
+}
+
+.fullscreen-amount .curr {
+  font-size: 1.3rem;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.fullscreen-code-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  flex: 1;
+  padding: 10px 0;
+  box-sizing: border-box;
+}
+
+.fullscreen-barcode-img {
+  width: 100%;
+  max-width: 100%;
+  max-height: min(45dvh, 320px);
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+  image-rendering: pixelated;
+}
+
+.fullscreen-barcode-number {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: clamp(1.2rem, 4.5vw, 1.8rem);
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #000000;
+  text-align: center;
+  margin-top: 18px;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.fullscreen-barcode-footer {
+  text-align: center;
+  padding: 8px 12px;
+}
+
+.tap-to-close-hint {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+}
+
+.rotate-icon {
+  font-size: 1.1rem;
+  display: inline-block;
+  animation: rotateHint 2.5s infinite ease-in-out;
+}
+
+@keyframes rotateHint {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-25deg); }
+  75% { transform: rotate(25deg); }
+}
+
+/* W trybie poziomym (obrócony telefon) – kod zajmuje jeszcze więcej wysokości */
+@media (orientation: landscape) {
+  .fullscreen-barcode-container {
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    max-width: 100%;
+    position: relative;
+  }
+  .fullscreen-barcode-top {
+    position: absolute;
+    top: 10px;
+    left: 20px;
+    width: auto;
+    gap: 16px;
+  }
+  .fullscreen-amount {
+    font-size: 1.8rem;
+  }
+  .fullscreen-code-box {
+    width: 90%;
+    max-width: 800px;
+  }
+  .fullscreen-barcode-img {
+    max-height: 60dvh;
+  }
+  .fullscreen-barcode-number {
+    font-size: clamp(1rem, 2.5vw, 1.4rem);
+    margin-top: 8px;
+  }
+  .fullscreen-barcode-footer {
+    position: absolute;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
 }
 
 .edit-modal {

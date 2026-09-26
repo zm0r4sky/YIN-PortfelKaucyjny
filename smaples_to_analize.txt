@@ -178,9 +178,32 @@ store_id (poz. 14-17)  | Sklep                           | Automat     | Kod kre
 1083                   | Lidl Warszawa ul. Conrada 1     | Automat 2   | 201000002000501083282139
 2175                   | Lidl Warszawa ul. Kasprowicza 117| Automat 1  | 201000002000502175282311
 1165                   | Lidl Warszawa ul. Myśliborska 94| Automat 1   | 201000002000501165171570
+1898                   | Lidl Warszawa ul. Światowida 53D| Automat 1   | 201000002000501898164421
 
 WNIOSEK: Ten sam sklep (store_id=1083, ul. Conrada 1) posiada co najmniej 2 automaty.
 Pozycje 18-23 (ticket_id) różnią się między automatami tego samego sklepu:
   Automat 1 → ticket_id=172521
   Automat 2 → ticket_id=282139
 To potwierdza że ticket_id jest licznikiem globalnym lub numerem seryjnym sesji, NIE ID automatu.
+
+=== NOWE PRÓBKI AUCHAN (21-09-2026) ===
+Sklep: Auchan, Warszawa ul. Światowida 57
+Kody kreskowe (GS1 Code 128 - 24 cyfry, prefix 9805):
+  1) 980545011790014110000503  (kwota 0.50 zł, txSeq 100005, GS1 Mod10 = 3)
+  2) 980545011790014121000509  (kwota 0.50 zł, txSeq 210005, GS1 Mod10 = 9)
+
+Tekst OCR z autentycznego paragonu Auchan:
+Auchan
+Potwierdzenie
+Nr potwierdzenia:28338
+pon., 21.09.2026 - 19:08:41
+Auchan
+Auchan 545 Warszawa Swiatowida 57
+Swiatowida 57
+Naleznosc z talonu za butelki
+realizujemy na kasach, za okazaniem
+potwierdzenia.
+1 x Puszka 0.50zl     0,50zł
+Suma: 0,50zł
+980545011790014121000509
+

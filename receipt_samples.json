@@ -621,6 +621,76 @@
       },
       "verification_status": "VERIFIED_100_PERCENT",
       "notes": "Lidl Warszawa ul. Myśliborska 94, Automat 1. Tło japońskie – dobry kandydat do testów OCR kontrastu."
+    },
+    {
+      "id": "SAMPLE-LIDL-006",
+      "barcode": "201000002000501898164421",
+      "barcode_format": "Code 128",
+      "barcode_length": 24,
+      "retailer": "Lidl",
+      "store_location": "Lidl Warszawa, ul. Światowida 53D",
+      "tomra_unit": "Automat 1",
+      "amount_pln": 0.50,
+      "items": "1x Butelka kaucja (0.50 zł)",
+      "expiration_date": "2026-10-21",
+      "validity_days": 30,
+      "decoded_fields": {
+        "prefix": "2010",
+        "non_deposit_grosze_raw": "0000",
+        "non_deposit_amount_pln": 0.00,
+        "deposit_separator": "20",
+        "deposit_grosze_raw": "0050",
+        "deposit_amount_pln": 0.50,
+        "total_amount_pln": 0.50,
+        "store_id": "1898",
+        "store_id_confirmed": "Lidl Warszawa ul. Światowida 53D",
+        "ticket_id": "164421"
+      },
+      "verification_status": "VERIFIED_100_PERCENT",
+      "notes": "Lidl Warszawa ul. Światowida 53D. Kod 201000002000501898164421, kwota 0.50 zł."
+    },
+    {
+      "id": "SAMPLE-AUCHAN-001",
+      "barcode": "980545011790014110000503",
+      "barcode_format": "GS1 Code 128",
+      "barcode_length": 24,
+      "retailer": "Auchan",
+      "store_location": "Auchan 545 Warszawa, ul. Światowida 57",
+      "amount_pln": 0.50,
+      "items": "1 x Puszka 0.50zl (0,50 zł)",
+      "print_datetime_local": "2026-09-21T19:08:30",
+      "decoded_fields": {
+        "prefix": "9805",
+        "store_id": "4501",
+        "machine_id": "17900141",
+        "tx_sequence": "100005",
+        "check_digit": 3,
+        "check_digit_valid": true
+      },
+      "verification_status": "VERIFIED_100_PERCENT",
+      "notes": "Auchan Potwierdzenie z automatu. Kod GS1 24 cyfry z cyfrą kontrolną Modulo 10 (3). Kwota 0.50 zł odczytana z OCR paragonu."
+    },
+    {
+      "id": "SAMPLE-AUCHAN-002",
+      "barcode": "980545011790014121000509",
+      "barcode_format": "GS1 Code 128",
+      "barcode_length": 24,
+      "retailer": "Auchan",
+      "store_location": "Auchan 545 Warszawa, ul. Światowida 57",
+      "confirmation_number": "28338",
+      "amount_pln": 0.50,
+      "items": "1 x Puszka 0.50zl (0,50 zł)",
+      "print_datetime_local": "2026-09-21T19:08:41",
+      "decoded_fields": {
+        "prefix": "9805",
+        "store_id": "4501",
+        "machine_id": "17900141",
+        "tx_sequence": "210005",
+        "check_digit": 9,
+        "check_digit_valid": true
+      },
+      "verification_status": "VERIFIED_100_PERCENT",
+      "notes": "Auchan Potwierdzenie z automatu. Nr potwierdzenia 28338, pon., 21.09.2026 - 19:08:41. Kod GS1 24 cyfry, check_digit=9 (prawidłowy)."
     }
   ]
 }

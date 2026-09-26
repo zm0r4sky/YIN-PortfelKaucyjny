@@ -121,12 +121,20 @@ Budowa autonomicznej aplikacji działającej lokalnie w przeglądarce, z wykorzy
   - Utworzenie matrycy 18 niezależnych sygnatur prawno-regulaminowych Biedronki (m.in. "wymienić na gotówkę w kasie sklepu", "niewykorzystany (...) przepada", regulamin kasy samoobsługowej, "Codziennie niskie ceny", "Jeronimo Martins Polska S.A.", "ul. Żniwna 5", "Segreguj i odzyskuj", "www.biedronka.pl").
   - Nowy silnik analizy autentyczności w `OcrService.js` (`analyzeShopDetails`), wyliczający scoring wiarygodności na podstawie korelacji wielu fraz zamiast pojedynczego słowa.
   - Wizualizacja potwierdzonych cech regulaminu w UI skanera (`ScannerView.vue`): złote plakietki `🛡️ Wiarygodność 100% (N cech regulaminu)` oraz rozwijany wykaz zweryfikowanych klauzul.
-- [x] Certyfikacja „100% LEGIT" – pełny przepływ zapisu i blokady edycji:
-  - Przekazanie metadanych weryfikacji (`is_verified`, `trust_score`, `verification_signals`) z `TrustScoreService` do `ReceiptService.addReceipt()` w metodzie `confirmSave()` (`ScannerView.vue`).
-  - Warunkowe ukrywanie przycisku edycji `✏️` w karcie paragonu w portfelu (`WalletView.vue`) za pomocą `v-if="!receipt.is_verified"`.
-  - Wyświetlanie plakietki `🛡️ LEGIT` z zielono-szmaragdowym gradientem w miejsce przycisku edycji dla paragonów zweryfikowanych maszynowo.
-  - Zabezpieczenie defence-in-depth: dodatkowa blokada w `openEditModal()` z komunikatem toast, jeśli użytkownik spróbuje otworzyć modal edycji dla paragonu `is_verified`.
-  - Trójwarstwowa ochrona integralności: 1) UI `v-if`, 2) `openEditModal()` guard, 3) `ReceiptService.updateReceipt()` backend lock.
+- [x] Rozszerzenie bazy próbek i filtrów o sieć Auchan oraz nowy paragon Lidl:
+  - Dodanie sieci **Auchan** do filtrów sklepów (`WalletView.vue`), formularzy dodawania/edycji (`ScannerView.vue`, `WalletView.vue`) oraz dedykowany styl plakietki `.shop-auchan`.
+  - Rozszerzenie parsowania kodów OCR (`OcrService.extractBarcode`) o 24-cyfrowy format Auchan (`9805\d{20}`).
+  - Wzbogacenie bazy próbek w [receipt_samples.json](file:///c:/Users/ZMoRa/Desktop/yin_modules/YIN-PortfelKaucyjny/receipt_samples.json) oraz [smaples_to_analize.txt](file:///c:/Users/ZMoRa/Desktop/yin_modules/YIN-PortfelKaucyjny/smaples_to_analize.txt):
+    - Nowy paragon Lidl: `201000002000501898164421` (0.50 PLN, Warszawa ul. Światowida 53D).
+    - 2 próbki Auchan: `980545011790014110000503` i `980545011790014121000509` (0.50 PLN, Warszawa ul. Światowida 57).
+  - Weryfikacja struktury kodu Biedronki z końcówką `...00058`:
+    - Potwierdzono, że algorytm dekoduje kwotę z pozycji [23-26] (`0005` = 5 x 10 gr = 0.50 zł), a 28. cyfra (`8` na pozycji 27) to cyfra kontrolna GS1 Modulo 10, NIE część kwoty.
+    - Rozszerzono rozpoznawanie prefiksów Biedronki w `BarcodeParserService.js` oraz `OcrService.js`: oprócz `9841` dodano wsparcie dla `9840` oraz `9866`.
+- [x] Pełnoekranowy Prezenter Kodu Kreskowego („Pokaż kod”):
+  - Usunięcie zbędnych przycisków i okna dialogowego (oraz przycisku `✕`) na rzecz minimalistycznego, pełnoekranowego widoku (`.barcode-fullscreen-backdrop`) z czysto białym tłem (`#ffffff`) dla maksymalnego kontrastu z laserowymi/optycznymi czytnikami kasjerów.
+  - Zwiększenie rozdzielczości generowania obrazu kodu z 900x220 do 1200x320 px (`ReceiptService.generateBarcodeImage`), co eliminuje pikselizację i rozmycie przy powiększeniu.
+  - Elastyczny, czytelny układ responsywny: w pionie kod dopasowuje się do ekranu (`max-height: min(45dvh, 320px)`), a po obróceniu telefonu (tryb poziomy / landscape) powiększa się na całą szerokość i wysokość (`max-height: 60dvh`), zachowując u góry nazwę sklepu i kwotę oraz powiększony zapis cyfrowy pod kreskami.
+  - Informacja o wyjściu: elegancka plakietka `🔄 Odwróć ekran, aby zamknąć podgląd` z animowaną ikoną obrotu. Zamknięcie następuje również natychmiast po dotknięciu ekranu.
 
 ---
 

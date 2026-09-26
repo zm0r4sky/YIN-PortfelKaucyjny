@@ -560,7 +560,7 @@ const showRawOcrText = ref(false);
 const showOcrImage = ref(false);
 const ocrPreviewImage = ref(null);
 
-const popularShops = ['Biedronka', 'Lidl', 'Dino', 'Kaufland', 'Carrefour', 'Żabka', 'Inny'];
+const popularShops = ['Biedronka', 'Lidl', 'Auchan', 'Dino', 'Kaufland', 'Carrefour', 'Żabka', 'Inny'];
 
 const parsedBarcodeHasDate = ref(false);
 

@@ -198,8 +198,8 @@ export const ReceiptService = {
 
     const res = await writeBarcode(cleanCode, {
       format,
-      width: cleanCode.length > 20 ? 900 : 600,
-      height: 220
+      width: cleanCode.length > 20 ? 1200 : 800,
+      height: 320
     });
 
     return URL.createObjectURL(res.image);

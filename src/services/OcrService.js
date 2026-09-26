@@ -573,8 +573,10 @@ class OcrServiceClass {
         .replace(/[S]/g, '5')
         .replace(/[Z]/g, '2');
 
-      const mBiedronka = candidate.match(/9841\d{24}/);
+      const mBiedronka = candidate.match(/(?:9841|9840|9866)\d{24}/);
       if (mBiedronka) return mBiedronka[0];
+      const mAuchan = candidate.match(/9805\d{20}/);
+      if (mAuchan) return mAuchan[0];
       const mLidl24 = candidate.match(/2010\d{20}/);
       if (mLidl24) return mLidl24[0];
       const mLidl19 = candidate.match(/200\d{16}/);
@@ -594,8 +596,10 @@ class OcrServiceClass {
       .replace(/[S]/g, '5')
       .replace(/[Z]/g, '2');
 
-    const m1 = cleanAll.match(/9841\d{24}/);
+    const m1 = cleanAll.match(/(?:9841|9840|9866)\d{24}/);
     if (m1) return m1[0];
+    const mAuchanAll = cleanAll.match(/9805\d{20}/);
+    if (mAuchanAll) return mAuchanAll[0];
     const m2 = cleanAll.match(/2010\d{20}/);
     if (m2) return m2[0];
     const m3 = cleanAll.match(/200\d{16}/);

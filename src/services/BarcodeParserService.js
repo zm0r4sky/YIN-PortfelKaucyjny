@@ -29,16 +29,17 @@ export const BarcodeParserService = {
     if (!barcode) return { detected: false };
     const code = this.cleanBarcode(barcode);
 
-    // WZORZEC 1: Biedronka Recyklomat (Code 128 - 28 cyfr)
-    // Struktura GS1: [9841 prefix 4c][sklep 5c][terminal 4c][Unix timestamp 10c][kwota w jedn. 10gr 4c][cyfra kontrolna GS1 Modulo 10 1c]
+    // WZORZEC 1: Biedronka Recyklomat (Code 128 - 28 cyfr, prefiksy 9841, 9840, 9866)
+    // Struktura GS1: [prefix 4c][sklep 5c][terminal 4c][Unix timestamp 10c][kwota w jedn. 10gr 4c][cyfra kontrolna GS1 Modulo 10 1c]
     // Przykłady:
     // 9841 01614 5531 1789823370 0065 0 -> 6.50 zł, data 2026-09-19 13:09:30 UTC, suma = 0
     // 9841 24327 2171 1789906816 0005 5 -> 0.50 zł, data 2026-09-20 12:20:16 UTC, suma = 5
-    // 9841 24327 2171 1789906827 0005 1 -> 0.50 zł, data 2026-09-20 12:20:27 UTC, suma = 1
-    // 9841 24327 2171 1789906838 0005 7 -> 0.50 zł, data 2026-09-20 12:20:38 UTC, suma = 7
-    // 9841 24327 2171 1789906847 0005 9 -> 0.50 zł, data 2026-09-20 12:20:47 UTC, suma = 9
-    if (code.length === 28 && code.startsWith('9841') && /^\d+$/.test(code)) {
+    // 9840 93632 1111 1790013515 0005 8 -> 0.50 zł, data 2026-09-21 17:58:35 UTC, suma = 8
+    // 9866 10547 6031 1790272568 0015 9 -> 1.50 zł, data 2026-09-24 17:56:08 UTC, suma = 9
+    const isBiedronkaCode = code.length === 28 && /^(9841|9840|9866)\d{24}$/.test(code);
+    if (isBiedronkaCode) {
       try {
+        const prefix = code.slice(0, 4);
         const storeId = code.slice(4, 9);
         const terminalId = code.slice(9, 13);
         const rawTimestamp = code.slice(13, 23);
