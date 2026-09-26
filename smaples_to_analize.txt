@@ -207,3 +207,39 @@ potwierdzenia.
 Suma: 0,50zł
 980545011790014121000509
 
+=== NOWA PRÓBKA CARREFOUR (23-09-2026) ===
+Sklep: Carrefour Warszawa Światowida, ul. Światowida 17
+Kod kreskowy: 33200000068832006606 (Code 128 - 20 cyfr, prefiks 3320)
+Zdjęcie wzorcowe: samples_images/Carrefour/IMG_7941.JPEG
+Wartość kaucji: 0.50 PLN (1 x PET 0.50 zł)
+Data wystawienia: 23-09-26 (2026-09-23)
+Data ważności: 22-11-26 (2026-11-22, ważność: dokładnie 60 dni / 2 miesiące)
+
+Tekst OCR z paragonu:
+Carrefour
+Carrefour Warszawa Światowida
+ul. Światowida 17
+VOUCHER* KAUCYJNY DO JEDNORAZOWEJ REALIZACJI
+W KASIE SKLEPU CARREFOUR W KTÓRYM ZASOTAŁ WYDANY.
+
+ZWROT KAUCJI W FORMIE GOTÓWKOWEJ BĄDŹ POPRZEZ
+UŻYCIE VOUCHERA DO POMNIEJSZENIA WARTOŚCI ZAKUPÓW.
+
+*szczegółowe informacje
+zawarte w regulaminie
+dostępnym w punkcie
+obsługi klienta oraz na
+www.carrefour.pl
+
+33200000068832006606
+
+1 x PET       0.50 zł
+0 x Puszka  0.00 zł
+0 x SZKŁO   0.00 zł
+
+WARTOŚĆ KAUCJI DO ZWROTU
+PLN    00.50 zł
+DATA WYSTAWIENIA: 23-09-26
+DATA WAŻNOŚCI: 22-11-26
+
+

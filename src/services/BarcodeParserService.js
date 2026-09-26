@@ -167,7 +167,26 @@ export const BarcodeParserService = {
       }
     }
 
-    // WZORZEC 5: Bon EAN-13 (13 cyfr z prefiksem 99 - kupony wewnętrzne)
+    // WZORZEC 5: Carrefour Voucher Kaucyjny (Code 128 - 20 cyfr, prefiks 3320)
+    // Format: 3320[16 cyfr identyfikatora vouchera]
+    // Przykład: 33200000068832006606 -> Carrefour, kwota z OCR (lub 0.50 zł z pozycji PET/PLN)
+    // Data wystawienia i ważności drukowana na dole (DD-MM-YY, 2 miesiące ważności)
+    if (code.length === 20 && code.startsWith('3320') && /^\d+$/.test(code)) {
+      try {
+        return {
+          shop_name: 'Carrefour',
+          amount: 0, // Kwota pobierana z OCR lub uzupełniana z pozycji
+          expiration_date: null,
+          has_date: false,
+          detected: true,
+          pattern_name: 'Carrefour Voucher Kaucyjny (Code 128 - 20 cyfr)'
+        };
+      } catch (err) {
+        console.warn('[BarcodeParserService] Error parsing Carrefour pattern:', err);
+      }
+    }
+
+    // WZORZEC 6: Bon EAN-13 (13 cyfr z prefiksem 99 - kupony wewnętrzne)
     // UWAGA: prefiks 98 NIE jest tu — to Auchan (24c). Tylko 99xx.
     if (code.length === 13 && /^\d+$/.test(code) && code.startsWith('99')) {
       return {

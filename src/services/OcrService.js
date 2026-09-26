@@ -371,6 +371,28 @@ class OcrServiceClass {
     ];
   }
 
+  getCarrefourSignatures() {
+    return [
+      // === TOŻSAMOŚĆ MARKI ===
+      { id: 'brand_name', label: 'Nazwa "Carrefour"', regex: /\bcarrefour\b/i, weight: 3 },
+      { id: 'store_location', label: 'Lokalizacja "Warszawa Światowida"', regex: /warszawa\s*[sś]wiatowida/i, weight: 3 },
+      { id: 'store_address', label: 'Adres "ul. Światowida 17"', regex: /swiatowida\s*17/i, weight: 3 },
+      // === KLAUZULA VOUCHERA ===
+      { id: 'voucher_title', label: '"VOUCHER KAUCYJNY"', regex: /voucher\*?\s*kaucyjny/i, weight: 3 },
+      { id: 'voucher_single_use', label: '"DO JEDNORAZOWEJ REALIZACJI W KASIE"', regex: /jednorazowej\s*realizacji\s*w\s*kasie/i, weight: 3 },
+      { id: 'voucher_store_restriction', label: '"W KTÓRYM ZOSTAŁ WYDANY"', regex: /w\s*kt[oó]rym\s*z[ao]sta[lł]\s*wydany/i, weight: 2.5 },
+      { id: 'voucher_cash_refund', label: '"ZWROT KAUCJI W FORMIE GOTÓWKOWEJ"', regex: /zwrot\s*kaucji\s*w\s*formie\s*got[oó]wkowej/i, weight: 3 },
+      { id: 'voucher_deduction', label: '"POMNIEJSZENIA WARTOŚCI ZAKUPÓW"', regex: /pomniejszenia\s*warto[sś]ci\s*zakup[oó]w/i, weight: 2.5 },
+      { id: 'customer_service', label: '"punkcie obsługi klienta"', regex: /punkcie\s*obs[lł]ugi\s*klienta/i, weight: 2 },
+      { id: 'website', label: 'Adres "www.carrefour.pl"', regex: /(?:www\.)?carrefour\.pl/i, weight: 2 },
+      // === POZYCJE I KWOTY ===
+      { id: 'item_pet', label: 'Pozycja "PET 0.50 zł"', regex: /\bpet\b/i, weight: 2 },
+      { id: 'refund_value', label: 'Etykieta "WARTOŚĆ KAUCJI DO ZWROTU"', regex: /warto[sś][cć]\s*kaucji\s*do\s*zwrotu/i, weight: 3 },
+      { id: 'date_issue', label: 'Etykieta "DATA WYSTAWIENIA"', regex: /data\s*wystawienia/i, weight: 2 },
+      { id: 'date_validity', label: 'Etykieta "DATA WAŻNOŚCI"', regex: /data\s*wa[żz]no[sś]ci/i, weight: 2 }
+    ];
+  }
+
 
   /**
    * Wielocechowa analiza autentyczności sklepu z ważeniem cech i regulaminu
@@ -420,8 +442,19 @@ class OcrServiceClass {
       }
     }
 
+    // 4. Sprawdź sygnatury Carrefour
+    const cSignatures = this.getCarrefourSignatures();
+    const cMatched = [];
+    let cScore = 0;
+    for (const sig of cSignatures) {
+      if (sig.regex.test(text)) {
+        cMatched.push(sig.label);
+        cScore += sig.weight;
+      }
+    }
+
     // Wybór przeważającej sieci (najwyższy score wygrywa)
-    const maxScore = Math.max(bScore, lScore, aScore);
+    const maxScore = Math.max(bScore, lScore, aScore, cScore);
 
     if (maxScore > 0 && bScore === maxScore) {
       const isAuthentic = bMatched.length >= 2 || bScore >= 5;
@@ -464,6 +497,21 @@ class OcrServiceClass {
           : `Wykryto ${aMatched.length} cechę Auchan`,
         matched_signals: aMatched,
         total_signals_count: aMatched.length,
+        is_authentic: isAuthentic
+      };
+    }
+
+    if (maxScore > 0 && cScore === maxScore) {
+      const isAuthentic = cMatched.length >= 2 || cScore >= 5;
+      const confidence = Math.min(100, Math.round(cMatched.length >= 3 ? 100 : cMatched.length * 35));
+      return {
+        shop_name: 'Carrefour',
+        confidence_percent: confidence,
+        credibility_label: isAuthentic
+          ? `100% autentyczności (potwierdzone ${cMatched.length} cechami Carrefour Voucher)`
+          : `Wykryto ${cMatched.length} cechę Carrefour`,
+        matched_signals: cMatched,
+        total_signals_count: cMatched.length,
         is_authentic: isAuthentic
       };
     }
@@ -517,8 +565,8 @@ class OcrServiceClass {
     if (!text) return null;
     const norm = this.normalizeOcrText(text);
 
-    // Pattern 1: Słowo kluczowe + kwota (np. SUMA, SUMA:0,50zł, SUMA RABATU, RAZEM, KAUCJA, ZWROT)
-    const keywordRegex = /(?:suma\s*rabatu|suma|razem|kaucja|zwrot|wyp[łl]at[ay]|warto[sś][cć]|kwota|do\s*zap[łl]aty)\s*[:=]?\s*[\r\n\s]*(\d{1,3}[,\.]\d{2})/i;
+    // Pattern 1: Słowo kluczowe + kwota (np. SUMA, SUMA:0,50zł, WARTOŚĆ KAUCJI DO ZWROTU PLN 00.50, RAZEM, KAUCJA, ZWROT)
+    const keywordRegex = /(?:warto[sś][cć]\s*kaucji\s*do\s*zwrotu|do\s*zwrotu|suma\s*rabatu|suma|razem|kaucja|zwrot|wyp[łl]at[ay]|warto[sś][cć]|kwota|do\s*zap[łl]aty)\s*[:=]?\s*(?:pln|z[łl])?\s*[\r\n\s]*(\d{1,3}[,\.]\d{2})/i;
     const match1 = norm.match(keywordRegex);
     if (match1 && match1[1]) {
       const val = parseFloat(match1[1].replace(',', '.'));
@@ -577,6 +625,8 @@ class OcrServiceClass {
       if (mBiedronka) return mBiedronka[0];
       const mAuchan = candidate.match(/9805\d{20}/);
       if (mAuchan) return mAuchan[0];
+      const mCarrefour = candidate.match(/3320\d{16}/);
+      if (mCarrefour) return mCarrefour[0];
       const mLidl24 = candidate.match(/2010\d{20}/);
       if (mLidl24) return mLidl24[0];
       const mLidl19 = candidate.match(/200\d{16}/);
@@ -600,6 +650,8 @@ class OcrServiceClass {
     if (m1) return m1[0];
     const mAuchanAll = cleanAll.match(/9805\d{20}/);
     if (mAuchanAll) return mAuchanAll[0];
+    const mCarrefourAll = cleanAll.match(/3320\d{16}/);
+    if (mCarrefourAll) return mCarrefourAll[0];
     const m2 = cleanAll.match(/2010\d{20}/);
     if (m2) return m2[0];
     const m3 = cleanAll.match(/200\d{16}/);
@@ -671,15 +723,15 @@ class OcrServiceClass {
       }
     }
 
-    // 1. Bezpośredni termin ważności z tekstu (np. "Do wykorzystania do dnia:\n2026-10-20", "termin waznosci: 2026-10-20", "ważny do 19.10.2026")
-    const expRegex = /(?:do\s*wykorzystania(?:\s*do\s*dnia)?|termin\s*wa[żz]no[sś]ci|wa[żz]n[yae]\s*do|wa[żz]no[sś][cć]|do\s*dnia)\s*[:=]?\s*[\r\n\s]*(\d{4}[\.\-\/]\d{1,2}[\.\-\/]\d{1,2}|\d{1,2}[\.\-\/]\d{1,2}[\.\-\/]\d{4})/i;
+    // 1. Bezpośredni termin ważności z tekstu (np. "Do wykorzystania do dnia:\n2026-10-20", "DATA WAŻNOŚCI: 22-11-26", "ważny do 19.10.2026")
+    const expRegex = /(?:do\s*wykorzystania(?:\s*do\s*dnia)?|data\s*wa[żz]no[sś]ci|termin\s*wa[żz]no[sś]ci|wa[żz]n[yae]\s*do|wa[żz]no[sś][cć]|do\s*dnia)\s*[:=]?\s*[\r\n\s]*(\d{4}[\.\-\/]\d{1,2}[\.\-\/]\d{1,2}|\d{1,2}[\.\-\/]\d{1,2}[\.\-\/]\d{2,4})/i;
     const matchExp = text.match(expRegex);
     if (matchExp && matchExp[1]) {
       expDateStr = this.normalizeDate(matchExp[1]);
     }
 
-    // 2. Data wydruku z tekstu (np. "DATA WYDRUKU: 2026-09-20 13:20" lub "data wystawienia: 20.09.2026")
-    const printRegex = /(?:data\s*(?:wydruku|wystawienia)?)\s*[:=]?\s*[\r\n\s]*(\d{4}[\.\-\/]\d{1,2}[\.\-\/]\d{1,2}|\d{1,2}[\.\-\/]\d{1,2}[\.\-\/]\d{4})/i;
+    // 2. Data wydruku z tekstu (np. "DATA WYDRUKU: 2026-09-20 13:20", "DATA WYSTAWIENIA: 23-09-26")
+    const printRegex = /(?:data\s*(?:wydruku|wystawienia)?)\s*[:=]?\s*[\r\n\s]*(\d{4}[\.\-\/]\d{1,2}[\.\-\/]\d{1,2}|\d{1,2}[\.\-\/]\d{1,2}[\.\-\/]\d{2,4})/i;
     const matchPrint = text.match(printRegex);
     if (!printDateStr && matchPrint && matchPrint[1]) {
       printDateStr = this.normalizeDate(matchPrint[1]);
@@ -846,8 +898,12 @@ class OcrServiceClass {
         // Format ISO: YYYY-MM-DD
         return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
       } else {
-        // Format Europejski: DD-MM-YYYY
-        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+        // Format Europejski: DD-MM-YYYY lub DD-MM-YY (np. Carrefour: 23-09-26)
+        let year = parts[2];
+        if (year.length === 2) {
+          year = `20${year}`;
+        }
+        return `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
       }
     }
     return dateStr;

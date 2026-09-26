@@ -134,7 +134,12 @@ Budowa autonomicznej aplikacji działającej lokalnie w przeglądarce, z wykorzy
   - Usunięcie zbędnych przycisków i okna dialogowego (oraz przycisku `✕`) na rzecz minimalistycznego, pełnoekranowego widoku (`.barcode-fullscreen-backdrop`) z czysto białym tłem (`#ffffff`) dla maksymalnego kontrastu z laserowymi/optycznymi czytnikami kasjerów.
   - Zwiększenie rozdzielczości generowania obrazu kodu z 900x220 do 1200x320 px (`ReceiptService.generateBarcodeImage`), co eliminuje pikselizację i rozmycie przy powiększeniu.
   - Elastyczny, czytelny układ responsywny: w pionie kod dopasowuje się do ekranu (`max-height: min(45dvh, 320px)`), a po obróceniu telefonu (tryb poziomy / landscape) powiększa się na całą szerokość i wysokość (`max-height: 60dvh`), zachowując u góry nazwę sklepu i kwotę oraz powiększony zapis cyfrowy pod kreskami.
-  - Informacja o wyjściu: elegancka plakietka `🔄 Odwróć ekran, aby zamknąć podgląd` z animowaną ikoną obrotu. Zamknięcie następuje również natychmiast po dotknięciu ekranu.
+- [x] Kalibracja i wdrożenie wzorca Carrefour Voucher Kaucyjny (20 cyfr):
+  - Identyfikacja struktury kodu: Code 128, 20 cyfr, stały prefiks `3320` (`33200000068832006606`), zdjęcie wzorcowe `samples_images/Carrefour/IMG_7941.JPEG`.
+  - Wdrożenie wzorca w `BarcodeParserService.js` (auto-detekcja sieci Carrefour z kodu).
+  - Wdrożenie matrycy 14 sygnatur prawno-regulaminowych Carrefoura w `OcrService.js` (`getCarrefourSignatures`), m.in. „VOUCHER KAUCYJNY DO JEDNORAZOWEJ REALIZACJI", „W KTÓRYM ZOSTAŁ WYDANY", „ZWROT KAUCJI W FORMIE GOTÓWKOWEJ", „POMNIEJSZENIA WARTOŚCI ZAKUPÓW", „WARTOŚĆ KAUCJI DO ZWROTU PLN".
+  - Obsługa formatu daty `DD-MM-YY` (np. `DATA WYSTAWIENIA: 23-09-26` -> `2026-09-23`, `DATA WAŻNOŚCI: 22-11-26` -> `2026-11-22`, ważność 60 dni).
+  - Rozszerzenie bazy próbek o `SAMPLE-CARREFOUR-001` w `receipt_samples.json` oraz `smaples_to_analize.txt`.
 
 ---
 
