@@ -803,7 +803,7 @@ onUnmounted(() => {
 
 .empty-icon {
   font-size: 3rem;
-  margin-bottom: 10px;
+  margin-bottom: 20px;
 }
 
 .empty-state h3 {
