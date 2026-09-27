@@ -237,9 +237,26 @@ www.carrefour.pl
 0 x Puszka  0.00 zł
 0 x SZKŁO   0.00 zł
 
-WARTOŚĆ KAUCJI DO ZWROTU
-PLN    00.50 zł
-DATA WYSTAWIENIA: 23-09-26
-DATA WAŻNOŚCI: 22-11-26
+=== NOWA PRÓBKA BIEDRONKA TOMRA S2 (24-09-2026) ===
+Sklep: Biedronka (Jeronimo Martins Polska S.A., ul. Żniwna 5, Kostrzyn)
+Automat: Tomra S2 (nr seryjny: 800805-90377000-61054-00)
+Kod kreskowy: 9866105476031179027256800159 (28 cyfr, prefiks 9866)
+Data i czas wydruku: 17:56:13 24-WRZ-2026 (Unix timestamp w kodzie: 1790272568 = 2026-09-24 17:56:08 UTC)
+Termin ważności na paragonie: "BON WAŻNY DO DNIA: 22-STY-2027"
+Ważność: dokładnie 120 DNI ("TERAZ AŻ 120 DNI NA REALIZACJĘ VOUCHERA KAUCYJNEGO!")
+Wartość: PLN 1.50 (3x Puszka 1.50 zł)
+
+=== NOWA PRÓBKA LIDL - SZABLON NIE-TOMRA (24-09-2026) ===
+Sklep: Lidl - Borzymowska 26, 03-565 Warszawa (ID sklepu w kodzie: 1198)
+Kod kreskowy: 201000002012501198106097 (24 cyfry, format 2010)
+  - 2010: prefiks stały
+  - 0000: kwota pozakaucyjna (0.00 zł)
+  - 20: separator kaucji
+  - 1250: kwota kaucji w groszach (12.50 zł)
+  - 1198: ID sklepu (Lidl Borzymowska 26)
+  - 106097: numer transakcji
+Data na paragonie: "czw., 24.09.2026 - 10:43:29" (Lidl format bez Tomra)
+Ważność: 30 dni od daty wydruku (do 24.10.2026)
+Wartość: 12,50 zł (20 x But_Plast_kaucja - 0.50 = 10,00 zł + 5 x Pusz_kaucja - 0.50 = 2,50 zł)
 
 

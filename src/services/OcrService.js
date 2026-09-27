@@ -321,7 +321,11 @@ class OcrServiceClass {
       { id: 'rule_every_store', label: 'W każdym sklepie Biedronka', regex: /w\s*ka[zż]dym\s*sklepie\s*biedronka/i, weight: 2.5 },
       { id: 'rule_website', label: 'Adres www.biedronka.pl', regex: /(?:www\.)?biedronka\.pl/i, weight: 2 },
       { id: 'rule_min_purchase', label: 'Minimalna wartość zakupów', regex: /minimalna\s*warto[sś][cć]\s*zakup[oó]w/i, weight: 2 },
-      { id: 'eco_slogan', label: 'Hasło ekologiczne "Segreguj i odzyskuj"', regex: /segreguj\s*i\s*odzyskuj/i, weight: 2.5 }
+      { id: 'eco_slogan', label: 'Hasło ekologiczne "Segreguj i odzyskuj"', regex: /segreguj\s*i\s*odzyskuj/i, weight: 2.5 },
+      { id: 'recyklomat_brand', label: 'Logo "Mój ReCyklomat"', regex: /m[oó]j\s*re\s*cyklo\s*mat/i, weight: 2.5 },
+      { id: 'validity_120_days', label: 'Klauzula "TERAZ AŻ 120 DNI"', regex: /teraz\s*a[żz]\s*120\s*dni/i, weight: 3 },
+      { id: 'machine_tomra_s2', label: 'Automat "Tomra S2"', regex: /tomra\s*s2/i, weight: 2.5 },
+      { id: 'tomra_serial_s2', label: 'Numer seryjny "800805-90377000-"', regex: /800805[\-\s]?90377000/i, weight: 3 }
     ];
   }
 
@@ -332,21 +336,22 @@ class OcrServiceClass {
       { id: 'company_legal', label: 'Pełna nazwa "Lidl sp. z o.o. sp.k."', regex: /lidl\s*sp\.?\s*z\s*o\.?o\.?\s*sp\.?k\.?/i, weight: 3 },
       { id: 'company_nip', label: 'NIP "7811897358"', regex: /7811897358/, weight: 3 },
       { id: 'company_bdo', label: 'BDO "000002265"', regex: /BDO[\s:]*000002265/i, weight: 2.5 },
-      // === ADRES CENTRALI ===
+      // === ADRES CENTRALI I SKLEPÓW ===
       { id: 'company_address_city', label: 'Centrala "Tarnowo Podgórne / Jankowice"', regex: /tarnowo\s*podg[oó]rne|jankowice/i, weight: 2.5 },
       { id: 'company_address_street', label: 'Adres "ul. Poznańska 48"', regex: /pozna[nń]ska\s*48/i, weight: 2.5 },
       { id: 'company_postal', label: 'Kod pocztowy "62-080"', regex: /62[\-\s]?080/i, weight: 2 },
+      { id: 'store_borzymowska', label: 'Sklep "Borzymowska 26, Warszawa"', regex: /borzymowska\s*26/i, weight: 3 },
       // === REGULAMIN KUPONU ===
       { id: 'coupon_usage', label: 'Klauzula "Kupon do wykorzystania w dowolnym sklepie Lidl"', regex: /kupon\s*do\s*wykorzystania\s*w\s*dowolnym\s*sklepie\s*lidl/i, weight: 3 },
       { id: 'coupon_validity', label: 'Termin "Kupon jest ważny 30 dni od daty jego wydania"', regex: /kupon\s*jest\s*wa[żz]ny\s*30\s*dni/i, weight: 2.5 },
       { id: 'coupon_rules', label: 'Regulamin "dostępny na www.lidl.pl"', regex: /regulamin\s*dost[eę]pny\s*na\s*(?:www\.)?lidl\.pl/i, weight: 2.5 },
       { id: 'website', label: 'Adres lidl.pl', regex: /(?:www\.)?lidl\.pl/i, weight: 1.5 },
-      // === MASZYNA TOMRA ===
-      { id: 'machine_model', label: 'Automat "Tomra 9"', regex: /tomra\s*9\b/i, weight: 2.5 },
+      // === MASZYNY TOMRA I INNE AUTOMATY ===
+      { id: 'machine_tomra_9', label: 'Automat "Tomra 9" / "Tomra 90" (T9/T90)', regex: /tomra\s*(?:90|9|t90|t9)\b/i, weight: 2.5 },
       { id: 'machine_serial', label: 'Nr seryjny Tomra "606657-90360000-"', regex: /606657[\-\s]?90360000/i, weight: 3 },
       // === POZYCJE PARAGONOWE ===
-      { id: 'item_bottle', label: '"Butelka kaucja" lub "Puszka kaucja"', regex: /(?:butelka|puszka)\s*kaucja/i, weight: 2 },
-      { id: 'item_suma_pln', label: 'Etykieta "SUMA: PLN"', regex: /suma\s*[\r\n\s]*pln\s*[\d,\.]+/i, weight: 2 }
+      { id: 'item_bottle', label: '"Butelka kaucja" lub "Puszka kaucja"', regex: /(?:but(?:elka|_plast)?|pusz(?:ka)?)\s*kaucja/i, weight: 2 },
+      { id: 'item_suma_pln', label: 'Etykieta "SUMA: PLN"', regex: /suma\s*[\r\n\s]*(?:pln\s*)?[\d,\.]+/i, weight: 2 }
     ];
   }
 
@@ -701,33 +706,63 @@ class OcrServiceClass {
     let printDateStr = null;
     let expDateStr = null;
 
-    // 0. Format Auchan: "pon., DD.MM.YYYY - HH:MM:SS" (data potwierdzenia)
-    // Przykład: "pon., 21.09.2026 - 19:08:30"
-    const auchanDateRegex = /(?:pon\.|wt\.|śr\.|czw\.|pt\.|sob\.|niedz\.)[\s,]*(\d{1,2})\.(\d{1,2})\.(\d{4})\s*[-–]\s*(\d{1,2}:\d{2}:\d{2})/i;
-    const auchanMatch = text.match(auchanDateRegex);
-    if (auchanMatch) {
-      const day = auchanMatch[1].padStart(2, '0');
-      const month = auchanMatch[2].padStart(2, '0');
-      const year = auchanMatch[3];
+    // 0. Format z dniem tygodnia (Auchan oraz Lidl bez Tomra: "czw., 24.09.2026 - 10:43:29")
+    // Przykład: "czw., 24.09.2026 - 10:43:29", "pon., 21.09.2026 - 19:08:30"
+    const weekdayDateRegex = /(?:pon\.|wt\.|śr\.|czw\.|pt\.|sob\.|niedz\.)[\s,]*(\d{1,2})\.(\d{1,2})\.(\d{4})\s*[-–]\s*(\d{1,2}:\d{2}:\d{2})/i;
+    const weekdayMatch = text.match(weekdayDateRegex);
+    if (weekdayMatch) {
+      const day = weekdayMatch[1].padStart(2, '0');
+      const month = weekdayMatch[2].padStart(2, '0');
+      const year = weekdayMatch[3];
       printDateStr = `${year}-${month}-${day}`;
-      // Auchan nie ma terminu ważności — "realizuj na kasie"
-      // expDateStr pozostaje null
-    }
-
-    // Fallback Auchan (bez prefiksu dnia tygodnia)
-    if (!printDateStr) {
-      const auchanDateFallback = /(\d{1,2})\.(\d{1,2})\.(\d{4})\s*[-–]\s*\d{1,2}:\d{2}:\d{2}/;
-      const afm = text.match(auchanDateFallback);
-      if (afm) {
-        printDateStr = `${afm[3]}-${afm[2].padStart(2,'0')}-${afm[1].padStart(2,'0')}`;
+      // Dla Lidla jeśli nie ma bezpośredniej daty ważności, jest to +30 dni od wydruku
+      if (!expDateStr && /lidl/i.test(text)) {
+        const pDate = new Date(Date.UTC(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10)));
+        pDate.setUTCDate(pDate.getUTCDate() + 30);
+        expDateStr = pDate.toISOString().split('T')[0];
       }
     }
 
-    // 1. Bezpośredni termin ważności z tekstu (np. "Do wykorzystania do dnia:\n2026-10-20", "DATA WAŻNOŚCI: 22-11-26", "ważny do 19.10.2026")
-    const expRegex = /(?:do\s*wykorzystania(?:\s*do\s*dnia)?|data\s*wa[żz]no[sś]ci|termin\s*wa[żz]no[sś]ci|wa[żz]n[yae]\s*do|wa[żz]no[sś][cć]|do\s*dnia)\s*[:=]?\s*[\r\n\s]*(\d{4}[\.\-\/]\d{1,2}[\.\-\/]\d{1,2}|\d{1,2}[\.\-\/]\d{1,2}[\.\-\/]\d{2,4})/i;
-    const matchExp = text.match(expRegex);
-    if (matchExp && matchExp[1]) {
-      expDateStr = this.normalizeDate(matchExp[1]);
+    // Fallback daty DD.MM.YYYY - HH:MM:SS (bez prefiksu dnia tygodnia)
+    if (!printDateStr) {
+      const fallbackDateTime = /(\d{1,2})\.(\d{1,2})\.(\d{4})\s*[-–]\s*\d{1,2}:\d{2}:\d{2}/;
+      const afm = text.match(fallbackDateTime);
+      if (afm) {
+        printDateStr = `${afm[3]}-${afm[2].padStart(2,'0')}-${afm[1].padStart(2,'0')}`;
+        if (!expDateStr && /lidl/i.test(text)) {
+          const pDate = new Date(Date.UTC(parseInt(afm[3], 10), parseInt(afm[2], 10) - 1, parseInt(afm[1], 10)));
+          pDate.setUTCDate(pDate.getUTCDate() + 30);
+          expDateStr = pDate.toISOString().split('T')[0];
+        }
+      }
+    }
+
+    // 1. Bezpośredni termin ważności z tekstu
+    // Formaty: "BON WAŻNY DO DNIA: 22-STY-2027", "DATA WAŻNOŚCI: 22-11-26", "Do wykorzystania do dnia:\n2026-10-20"
+    const expRegexTextMonth = /(?:bon\s*wa[żz]ny\s*do\s*dnia|termin\s*wa[żz]no[sś]ci|wa[żz]n[yae]\s*do|do\s*dnia)\s*[:=]?\s*[\r\n\s]*([0-9A-Za-z]{1,2})\s*[\.\-\/]\s*([A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż0-9]{3,12})\s*[\.\-\/]\s*([0-9A-Za-z]{2,4})/i;
+    const matchExpTextMonth = text.match(expRegexTextMonth);
+    if (matchExpTextMonth) {
+      const rawD = matchExpTextMonth[1].replace(/[Oo]/g, '0').replace(/[Iil|]/g, '1').replace(/[Zz]/g, '2');
+      const d = parseInt(rawD, 10);
+      const rawM = matchExpTextMonth[2].toUpperCase().replace(/Ą/g, 'A').replace(/Ć/g, 'C').replace(/Ę/g, 'E').replace(/Ł/g, 'L').replace(/Ń/g, 'N').replace(/Ó/g, 'O').replace(/Ś/g, 'S').replace(/Ź/g, 'Z').replace(/Ż/g, 'Z');
+      const mIdx = MONTH_MAP[rawM] !== undefined ? MONTH_MAP[rawM] : MONTH_MAP[rawM.slice(0, 3)];
+      const rawY = matchExpTextMonth[3].replace(/[Oo]/g, '0').replace(/[Iil|]/g, '1').replace(/[Zz]/g, '2');
+      let y = parseInt(rawY, 10);
+      if (rawY.length === 2) y = 2000 + y;
+      if (d >= 1 && d <= 31 && mIdx !== undefined && y >= 2024 && y <= 2035) {
+        const expD = new Date(Date.UTC(y, mIdx, d));
+        if (!isNaN(expD.getTime())) {
+          expDateStr = expD.toISOString().split('T')[0];
+        }
+      }
+    }
+
+    if (!expDateStr) {
+      const expRegex = /(?:bon\s*wa[żz]ny\s*do\s*dnia|do\s*wykorzystania(?:\s*do\s*dnia)?|data\s*wa[żz]no[sś]ci|termin\s*wa[żz]no[sś]ci|wa[żz]n[yae]\s*do|wa[żz]no[sś][cć]|do\s*dnia)\s*[:=]?\s*[\r\n\s]*(\d{4}[\.\-\/]\d{1,2}[\.\-\/]\d{1,2}|\d{1,2}[\.\-\/]\d{1,2}[\.\-\/]\d{2,4})/i;
+      const matchExp = text.match(expRegex);
+      if (matchExp && matchExp[1]) {
+        expDateStr = this.normalizeDate(matchExp[1]);
+      }
     }
 
     // 2. Data wydruku z tekstu (np. "DATA WYDRUKU: 2026-09-20 13:20", "DATA WYSTAWIENIA: 23-09-26")

@@ -139,7 +139,19 @@ Budowa autonomicznej aplikacji działającej lokalnie w przeglądarce, z wykorzy
   - Wdrożenie wzorca w `BarcodeParserService.js` (auto-detekcja sieci Carrefour z kodu).
   - Wdrożenie matrycy 14 sygnatur prawno-regulaminowych Carrefoura w `OcrService.js` (`getCarrefourSignatures`), m.in. „VOUCHER KAUCYJNY DO JEDNORAZOWEJ REALIZACJI", „W KTÓRYM ZOSTAŁ WYDANY", „ZWROT KAUCJI W FORMIE GOTÓWKOWEJ", „POMNIEJSZENIA WARTOŚCI ZAKUPÓW", „WARTOŚĆ KAUCJI DO ZWROTU PLN".
   - Obsługa formatu daty `DD-MM-YY` (np. `DATA WYSTAWIENIA: 23-09-26` -> `2026-09-23`, `DATA WAŻNOŚCI: 22-11-26` -> `2026-11-22`, ważność 60 dni).
-  - Rozszerzenie bazy próbek o `SAMPLE-CARREFOUR-001` w `receipt_samples.json` oraz `smaples_to_analize.txt`.
+- [x] Kalibracja Biedronka (Tomra S2, 120 dni, strefa czasowa UTC) oraz Lidl (wzór bez Tomra):
+  - **Biedronka - Wydłużenie ważności do 120 dni:** Wdrożenie nowego regulaminu Biedronki („TERAZ AŻ 120 DNI NA REALIZACJĘ VOUCHERA KAUCYJNEGO!”) – kalkulacja ważności +120 dni oraz bezpośredni odczyt klauzuli OCR `BON WAŻNY DO DNIA: DD-MMM-YYYY` (np. 22-STY-2027).
+  - **Biedronka - Wyjaśnienie prefiksów recyklomatów:**
+    - `9841`, `9840` – automaty starszego typu / standardowe automaty sieci (układ Zielonka z datą wydruku w środkowej części).
+    - `9866` – najnowsze automaty **Tomra S2** pod marką *Mój ReCyklomat*, ze stopką z numerem seryjnym `800805-90377000-61054-00` i oznaczeniem modelu `Tomra S2`.
+  - **Biedronka - Znacznik czasu Unix Timestamp i strefa czasowa:**
+    - Potwierdzono, że 10 cyfr [13-22] to uniwersalny czas Unix Timestamp w sekundach UTC (np. `1790272568` odpowiada 17:56:08 UTC).
+    - Czas na paragonie to 17:56:13 czasu lokalnego (różnica 5 sekund wynika z momentu rozpoczęcia/zakończenia transakcji przez terminal i bufora drukowania; strefa polska to UTC+2 w lecie i UTC+1 w zimie).
+  - **Lidl - Wzorzec wydruku bez maszyny Tomra (Borzymowska 26, Warszawa):**
+    - Próbka: `201000002012501198106097` (20x butelka 10 zł + 5x puszka 2,50 zł = 12,50 PLN).
+    - Odczyt daty na dole wydruku: `czw., 24.09.2026 - 10:43:29` wraz z wyznaczeniem terminu +30 dni.
+    - Identyfikacja modeli maszyn w Lidlu: `Tomra 9` (T9), `Tomra 90` (T90) oraz kompaktowe/lokalne drukarki kasowe/recyklingowe.
+  - Aktualizacja baz referencyjnych w `receipt_samples.json` oraz `smaples_to_analize.txt` o `SAMPLE-BIEDRONKA-003` i `SAMPLE-LIDL-007`.
 
 ---
 

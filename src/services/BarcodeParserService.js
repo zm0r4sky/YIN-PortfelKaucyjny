@@ -49,12 +49,14 @@ export const BarcodeParserService = {
         const isChecksumValid = this.validateBiedronkaCheckDigit(code);
 
         // Dekodowanie Unix timestamp (10 cyfr sekund)
+        // Biedronka zapisuje czas UTC w kodzie, ale z przesunięciem lokalnym (+1h w zimie, +2h w lecie)
         const timestampSeconds = parseInt(rawTimestamp, 10);
         const printDate = new Date(timestampSeconds * 1000);
 
-        // Ważność: dokładnie 30 dni od wydruku
+        // Ważność Biedronki: Voucher ważny 120 DNI (lub 90 dni w starszych wersjach kampanii)
+        // Na voucherach z kampanii "TERAZ AŻ 120 DNI" ważność wynosi 120 dni od daty wydruku
         const expDate = new Date(printDate);
-        expDate.setDate(expDate.getDate() + 30);
+        expDate.setDate(expDate.getDate() + 120);
 
         const expDateStr = !isNaN(expDate.getTime()) 
           ? expDate.toISOString().split('T')[0] 

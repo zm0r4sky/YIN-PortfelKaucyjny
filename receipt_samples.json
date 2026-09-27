@@ -717,6 +717,61 @@
       },
       "verification_status": "VERIFIED_100_PERCENT",
       "notes": "Carrefour Voucher Kaucyjny. Kod 20 cyfr Code 128 (prefiks 3320). Ważność: 60 dni (23-09-26 do 22-11-26). Kwota 0.50 zł z WARTOŚĆ KAUCJI DO ZWROTU PLN 00.50 zł."
+    },
+    {
+      "id": "SAMPLE-BIEDRONKA-003",
+      "barcode": "9866105476031179027256800159",
+      "barcode_format": "Code 128",
+      "barcode_length": 28,
+      "retailer": "Biedronka",
+      "store_location": "Biedronka (Jeronimo Martins Polska S.A., ul. Żniwna 5, Kostrzyn)",
+      "machine_model": "Tomra S2",
+      "machine_serial": "800805-90377000-61054-00",
+      "amount_pln": 1.50,
+      "items": "3x Puszka (1.50 zł)",
+      "print_datetime_local": "2026-09-24T17:56:13",
+      "expiration_date": "2027-01-22",
+      "validity_days": 120,
+      "decoded_fields": {
+        "prefix": "9866",
+        "store_id": "10547",
+        "terminal_id": "6031",
+        "unix_timestamp": 1790272568,
+        "amount_units_raw": "0015",
+        "computed_amount_pln": 1.50,
+        "check_digit": 9,
+        "check_digit_valid": true
+      },
+      "verification_status": "VERIFIED_100_PERCENT",
+      "notes": "Biedronka automat Tomra S2. Ważność 120 DNI ('TERAZ AŻ 120 DNI NA REALIZACJĘ VOUCHERA KAUCYJNEGO!'). Data na voucherze: 17:56:13 24-WRZ-2026, BON WAŻNY DO DNIA: 22-STY-2027."
+    },
+    {
+      "id": "SAMPLE-LIDL-007",
+      "barcode": "201000002012501198106097",
+      "barcode_format": "Code 128",
+      "barcode_length": 24,
+      "retailer": "Lidl",
+      "store_location": "Lidl Warszawa, ul. Borzymowska 26",
+      "store_id": "1198",
+      "amount_pln": 12.50,
+      "items": "20 x But_Plast_kaucja (10.00 zł) + 5 x Pusz_kaucja (2.50 zł)",
+      "print_datetime_local": "2026-09-24T10:43:29",
+      "expiration_date": "2026-10-24",
+      "validity_days": 30,
+      "decoded_fields": {
+        "prefix": "2010",
+        "non_deposit_grosze_raw": "0000",
+        "non_deposit_amount_pln": 0.00,
+        "deposit_separator": "20",
+        "deposit_grosze_raw": "1250",
+        "deposit_amount_pln": 12.50,
+        "total_amount_pln": 12.50,
+        "store_id": "1198",
+        "store_id_confirmed": "Lidl Warszawa ul. Borzymowska 26",
+        "ticket_id": "106097"
+      },
+      "verification_status": "VERIFIED_100_PERCENT",
+      "notes": "Lidl szablon bez Tomra (nagłówek 'czw., 24.09.2026 - 10:43:29', ID sklepu 1198 na dole). Kwota w kodzie 1250 = 12.50 zł."
     }
   ]
 }
