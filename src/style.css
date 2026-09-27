@@ -306,9 +306,9 @@ code {
   }
 }
 
-/* Wymuszenie orientacji pionowej na telefonach */
+/* Wymuszenie orientacji pionowej na telefonach (wyłączone podczas prezentacji kodu) */
 @media screen and (orientation: landscape) and (max-height: 550px) {
-  body::before {
+  body:not(.presenting-barcode)::before {
     content: "📱\A\A Proszę obrócić telefon do pionu.\A Aplikacja jest zoptymalizowana do pracy w pionie.";
     white-space: pre-line;
     position: fixed;

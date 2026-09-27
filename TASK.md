@@ -130,10 +130,10 @@ Budowa autonomicznej aplikacji działającej lokalnie w przeglądarce, z wykorzy
   - Weryfikacja struktury kodu Biedronki z końcówką `...00058`:
     - Potwierdzono, że algorytm dekoduje kwotę z pozycji [23-26] (`0005` = 5 x 10 gr = 0.50 zł), a 28. cyfra (`8` na pozycji 27) to cyfra kontrolna GS1 Modulo 10, NIE część kwoty.
     - Rozszerzono rozpoznawanie prefiksów Biedronki w `BarcodeParserService.js` oraz `OcrService.js`: oprócz `9841` dodano wsparcie dla `9840` oraz `9866`.
-- [x] Pełnoekranowy Prezenter Kodu Kreskowego („Pokaż kod”):
-  - Usunięcie zbędnych przycisków i okna dialogowego (oraz przycisku `✕`) na rzecz minimalistycznego, pełnoekranowego widoku (`.barcode-fullscreen-backdrop`) z czysto białym tłem (`#ffffff`) dla maksymalnego kontrastu z laserowymi/optycznymi czytnikami kasjerów.
-  - Zwiększenie rozdzielczości generowania obrazu kodu z 900x220 do 1200x320 px (`ReceiptService.generateBarcodeImage`), co eliminuje pikselizację i rozmycie przy powiększeniu.
-  - Elastyczny, czytelny układ responsywny: w pionie kod dopasowuje się do ekranu (`max-height: min(45dvh, 320px)`), a po obróceniu telefonu (tryb poziomy / landscape) powiększa się na całą szerokość i wysokość (`max-height: 60dvh`), zachowując u góry nazwę sklepu i kwotę oraz powiększony zapis cyfrowy pod kreskami.
+- [x] Hybrydowy Prezenter Kodu Kreskowego („Pokaż kod” – Pion vs Poziom):
+  - **Tryb pionowy (Portrait):** zachowano standardowe, pełne okno modalne z przyciskami („✕”, „✓ Zrealizowano kaucję (Archiwizuj)”, „Zamknij”), informacjami o sklepie, kwocie i kodem kreskowym oraz nową podpowiedzią: `🔄 Obróć telefon w poziom, aby wyświetlić kod na cały ekran`.
+  - **Tryb poziomy (Landscape Fullscreen):** po przekręceniu telefonu aplikacja automatycznie zdejmuje blokadę orientacji (`body:not(.presenting-barcode)::before`) i zamiast komunikatu blokady wyświetla kod na cały ekran (`max-height: 60dvh`, rozdzielczość 1200x320 px) na czysto białym tle.
+  - **Warunek wyjścia z pełnego ekranu:** w trybie poziomym nie ma żadnych przycisków wyjścia ani zamykania dotknięciem – jedyną możliwością powrotu jest fizyczne obrócenie telefonu z powrotem do pionu, z czytelnym komunikatem `🔄 Odwróć telefon do pionu, aby zamknąć podgląd`.
 - [x] Kalibracja i wdrożenie wzorca Carrefour Voucher Kaucyjny (20 cyfr):
   - Identyfikacja struktury kodu: Code 128, 20 cyfr, stały prefiks `3320` (`33200000068832006606`), zdjęcie wzorcowe `samples_images/Carrefour/IMG_7941.JPEG`.
   - Wdrożenie wzorca w `BarcodeParserService.js` (auto-detekcja sieci Carrefour z kodu).

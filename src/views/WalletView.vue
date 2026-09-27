@@ -190,28 +190,71 @@
       </div>
     </div>
 
-    <!-- MODAL: Pełnoekranowy Prezenter Kodu Kreskowego (Bez przycisków, max czytelność dla skanerów) -->
+    <!-- MODAL / PEŁNY EKRAN: Prezenter Kodu Kreskowego -->
     <teleport to="body">
       <transition name="fade">
         <div 
           v-if="activePresenterReceipt" 
-          class="barcode-fullscreen-backdrop" 
-          @click="closeBarcodePresenter"
-          title="Odwróć ekran lub dotknij, aby zamknąć podgląd"
+          class="presenter-backdrop"
+          :class="{ 'is-landscape': isLandscape }"
+          @click.self="!isLandscape && closeBarcodePresenter()"
         >
-          <div class="fullscreen-barcode-container" @click.stop="closeBarcodePresenter">
-            <!-- Górna belka informacyjna -->
-            <div class="fullscreen-barcode-top">
+          <!-- WIDOK 1 (PIONOWY): Dotychczasowe okno modalne z przyciskami i podglądem -->
+          <div v-if="!isLandscape" class="cashier-modal">
+            <button type="button" class="modal-close-btn" @click="closeBarcodePresenter" title="Zamknij">✕</button>
+            <div class="cashier-header">
               <span class="shop-badge large" :class="getShopClass(activePresenterReceipt.shop_name)">
                 {{ activePresenterReceipt.shop_name }}
               </span>
-              <div class="fullscreen-amount">
-                {{ activePresenterReceipt.amount.toFixed(2) }} <span class="curr">zł</span>
+              <div class="cashier-amount">
+                {{ activePresenterReceipt.amount.toFixed(2) }} <span>zł</span>
+              </div>
+              <p class="cashier-hint">Skieruj kod do czytnika kasowego lub obróć telefon</p>
+            </div>
+
+            <!-- Wygenerowany obraz kodu kreskowego -->
+            <div class="barcode-display-box">
+              <div v-if="isGeneratingBarcode" class="barcode-spinner">
+                Generowanie ostrości kodu...
+              </div>
+              <template v-else-if="presenterBarcodeUrl">
+                <img 
+                  :src="presenterBarcodeUrl" 
+                  alt="Kod kreskowy" 
+                  class="generated-barcode-img" 
+                />
+                <div class="barcode-human-text">{{ activePresenterReceipt.barcode }}</div>
+              </template>
+            </div>
+
+            <!-- Podpowiedź o obrocie telefonu -->
+            <div class="rotate-fullscreen-tip">
+              <span class="rotate-icon">🔄</span>
+              <span>Obróć telefon w poziom, aby wyświetlić kod na cały ekran</span>
+            </div>
+
+            <div class="cashier-actions">
+              <button class="btn btn-primary btn-large" @click="markAsUsedFromPresenter">
+                ✓ Zrealizowano kaucję (Archiwizuj)
+              </button>
+              <button class="btn btn-secondary" @click="closeBarcodePresenter">
+                Zamknij
+              </button>
+            </div>
+          </div>
+
+          <!-- WIDOK 2 (POZIOMY): Tryb pełnoekranowy zamiast komunikatu blokady. ZAMKNIĘCIE TYLKO PRZEZ POWRÓT DO PIONU -->
+          <div v-else class="landscape-fullscreen-view">
+            <div class="landscape-barcode-header">
+              <span class="shop-badge large" :class="getShopClass(activePresenterReceipt.shop_name)">
+                {{ activePresenterReceipt.shop_name }}
+              </span>
+              <div class="landscape-amount">
+                {{ activePresenterReceipt.amount.toFixed(2) }} <span>zł</span>
               </div>
             </div>
 
-            <!-- Centralny gigantyczny kod kreskowy -->
-            <div class="fullscreen-code-box">
+            <div class="landscape-code-stage">
               <div v-if="isGeneratingBarcode" class="barcode-spinner">
                 Generowanie maksymalnej ostrości kodu...
               </div>
@@ -219,16 +262,15 @@
                 <img 
                   :src="presenterBarcodeUrl" 
                   alt="Kod kreskowy" 
-                  class="fullscreen-barcode-img" 
+                  class="landscape-barcode-img" 
                 />
-                <div class="fullscreen-barcode-number">{{ activePresenterReceipt.barcode }}</div>
+                <div class="landscape-barcode-number">{{ activePresenterReceipt.barcode }}</div>
               </template>
             </div>
 
-            <!-- Dolna informacja ze wskazówką odwrócenia ekranu -->
-            <div class="fullscreen-barcode-footer">
-              <span class="tap-to-close-hint">
-                <span class="rotate-icon">🔄</span> Odwróć ekran, aby zamknąć podgląd
+            <div class="landscape-footer-notice">
+              <span class="landscape-rotate-pill">
+                <span class="rotate-icon">🔄</span> Odwróć telefon do pionu, aby zamknąć podgląd
               </span>
             </div>
           </div>
@@ -331,7 +373,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { ReceiptService } from '../services/ReceiptService';
 
 const receipts = ref([]);
@@ -579,8 +621,40 @@ const saveEditedReceipt = async () => {
   await loadReceipts();
 };
 
+const isLandscape = ref(false);
+
+const updateOrientation = () => {
+  if (typeof window !== 'undefined') {
+    isLandscape.value = window.innerWidth > window.innerHeight;
+  }
+};
+
+watch(activePresenterReceipt, (val) => {
+  if (val) {
+    document.body.classList.add('presenting-barcode');
+  } else {
+    document.body.classList.remove('presenting-barcode');
+  }
+});
+
+watch(isLandscape, (val) => {
+  // Jeśli użytkownik zamknął podgląd przez obrócenie do pionu
+  if (!val && activePresenterReceipt.value && isLandscape.value === false) {
+    // Pozostaje w modalnym podglądzie pionowym
+  }
+});
+
 onMounted(() => {
   loadReceipts();
+  updateOrientation();
+  window.addEventListener('resize', updateOrientation);
+  window.addEventListener('orientationchange', updateOrientation);
+});
+
+onUnmounted(() => {
+  document.body.classList.remove('presenting-barcode');
+  window.removeEventListener('resize', updateOrientation);
+  window.removeEventListener('orientationchange', updateOrientation);
 });
 </script>
 
@@ -993,8 +1067,8 @@ onMounted(() => {
   transform: scale(0.92);
 }
 
-/* Pełnoekranowy Prezenter Kodu (bez przycisków, max czytelność) */
-.barcode-fullscreen-backdrop {
+/* PREZENTER KODU - DUAL MODE (Pion vs Poziom) */
+.presenter-backdrop {
   position: fixed;
   top: 0;
   left: 0;
@@ -1003,108 +1077,209 @@ onMounted(() => {
   width: 100vw;
   height: 100vh;
   height: 100dvh;
-  background: #ffffff;
-  z-index: 99999;
+  background: rgba(0, 0, 0, 0.78);
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: env(safe-area-inset-top, 16px) 16px env(safe-area-inset-bottom, 20px) 16px;
+  padding: 16px 16px 95px 16px;
+  z-index: 25000;
   box-sizing: border-box;
-  overflow: hidden;
-  cursor: pointer;
+  overflow-x: hidden;
+  max-width: 100vw;
+  transition: background 0.2s;
 }
 
-.fullscreen-barcode-container {
+/* W trybie poziomym – pełny ekran na białym tle, bez przycisków wyjścia */
+.presenter-backdrop.is-landscape {
+  background: #ffffff;
+  padding: 0;
+  z-index: 999999;
+  cursor: default;
+}
+
+/* WIDOK PIONOWY (CASHIER MODAL) */
+.cashier-modal {
+  position: relative;
+  background: #ffffff;
+  width: 100%;
+  max-width: 420px;
+  max-height: min(78dvh, 580px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 20px;
+  padding: 20px 18px 24px;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.cashier-amount {
+  font-size: 2.8rem;
+  font-weight: 800;
+  color: #1b263b;
+  margin: 10px 0 4px;
+}
+
+.cashier-amount span {
+  font-size: 1.5rem;
+  color: #64748b;
+}
+
+.cashier-hint {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin: 0 0 16px;
+}
+
+.barcode-display-box {
+  background: #ffffff;
+  padding: 16px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 16px;
+  margin-bottom: 14px;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+.generated-barcode-img {
+  width: 100%;
+  height: auto;
+  max-height: 140px;
+  display: block;
+  object-fit: contain;
+  margin: 0 auto 10px;
+}
+
+.barcode-human-text {
+  font-family: monospace;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #0f172a;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.rotate-fullscreen-tip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  padding: 8px 12px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #334155;
+  line-height: 1.3;
+}
+
+.cashier-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* WIDOK POZIOMY (LANDSCAPE FULLSCREEN) – BRAK PRZYCISKÓW, WYJŚCIE TYLKO POWRÓT DO PIONU */
+.landscape-fullscreen-view {
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  background: #ffffff;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
-  max-width: 600px;
-  height: 100%;
-  max-height: 100dvh;
+  padding: 8px 16px 8px;
   box-sizing: border-box;
-  padding: 10px 0;
+  position: relative;
+  user-select: none;
 }
 
-.fullscreen-barcode-top {
+.landscape-barcode-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
+  max-width: 900px;
   padding: 0 10px;
   box-sizing: border-box;
 }
 
-.fullscreen-amount {
-  font-size: 2.4rem;
+.landscape-amount {
+  font-size: 1.8rem;
   font-weight: 800;
   color: #0f172a;
-  line-height: 1;
 }
 
-.fullscreen-amount .curr {
-  font-size: 1.3rem;
+.landscape-amount span {
+  font-size: 1.1rem;
   color: #64748b;
-  font-weight: 700;
 }
 
-.fullscreen-code-box {
+.landscape-code-stage {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   width: 100%;
   flex: 1;
-  padding: 10px 0;
+  max-width: 960px;
   box-sizing: border-box;
 }
 
-.fullscreen-barcode-img {
+.landscape-barcode-img {
   width: 100%;
-  max-width: 100%;
-  max-height: min(45dvh, 320px);
+  max-width: 880px;
+  max-height: 60dvh;
   object-fit: contain;
   display: block;
   margin: 0 auto;
   image-rendering: pixelated;
 }
 
-.fullscreen-barcode-number {
+.landscape-barcode-number {
   font-family: 'Consolas', 'Courier New', monospace;
-  font-size: clamp(1.2rem, 4.5vw, 1.8rem);
+  font-size: clamp(1.1rem, 2.6vw, 1.6rem);
   font-weight: 900;
   letter-spacing: 2px;
   color: #000000;
   text-align: center;
-  margin-top: 18px;
+  margin-top: 6px;
   word-break: break-all;
   overflow-wrap: anywhere;
-  user-select: all;
 }
 
-.fullscreen-barcode-footer {
+.landscape-footer-notice {
   text-align: center;
-  padding: 8px 12px;
+  padding-bottom: 2px;
 }
 
-.tap-to-close-hint {
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: #64748b;
+.landscape-rotate-pill {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #475569;
   letter-spacing: 0.3px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #f8fafc;
-  padding: 6px 14px;
+  background: #f1f5f9;
+  padding: 5px 14px;
   border-radius: 20px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #cbd5e1;
 }
 
 .rotate-icon {
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   display: inline-block;
   animation: rotateHint 2.5s infinite ease-in-out;
 }
@@ -1113,44 +1288,6 @@ onMounted(() => {
   0%, 100% { transform: rotate(0deg); }
   25% { transform: rotate(-25deg); }
   75% { transform: rotate(25deg); }
-}
-
-/* W trybie poziomym (obrócony telefon) – kod zajmuje jeszcze więcej wysokości */
-@media (orientation: landscape) {
-  .fullscreen-barcode-container {
-    flex-direction: row;
-    justify-content: center;
-    align-items: center;
-    max-width: 100%;
-    position: relative;
-  }
-  .fullscreen-barcode-top {
-    position: absolute;
-    top: 10px;
-    left: 20px;
-    width: auto;
-    gap: 16px;
-  }
-  .fullscreen-amount {
-    font-size: 1.8rem;
-  }
-  .fullscreen-code-box {
-    width: 90%;
-    max-width: 800px;
-  }
-  .fullscreen-barcode-img {
-    max-height: 60dvh;
-  }
-  .fullscreen-barcode-number {
-    font-size: clamp(1rem, 2.5vw, 1.4rem);
-    margin-top: 8px;
-  }
-  .fullscreen-barcode-footer {
-    position: absolute;
-    bottom: 6px;
-    left: 50%;
-    transform: translateX(-50%);
-  }
 }
 
 .edit-modal {
